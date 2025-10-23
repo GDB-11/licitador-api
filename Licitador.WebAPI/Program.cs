@@ -1,17 +1,65 @@
+using System.Data;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Scalar.AspNetCore;
 using System.Text;
-using Application.Core.Interfaces;
+using Application.Core.Config;
 using Application.Core.Interfaces.Account;
 using Application.Core.Interfaces.Shared;
-using Application.Core.Services;
 using Application.Core.Services.Account;
 using Application.Core.Services.Shared;
+using Global.Objects.Encryption;
+using Infrastructure.Core.Interfaces.Security;
+using Infrastructure.Core.Services.Security;
+using Licitador.WebAPI.Logging;
+using Licitador.WebAPI.Mappings;
+using Npgsql;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+
+#region Register Masterkeys
+EncryptionConfig encryptionConfig = new()
+{
+    MasterKey = builder.Configuration["Encryption:MasterKey"] ?? throw new NullReferenceException("MasterKey")
+};
+builder.Services.AddSingleton(encryptionConfig);
+
+DeterministicEncryptionConfig deterministicEncryptionConfig = new()
+{
+    MasterKey = builder.Configuration["DeterministicEncryption:MasterKey"] ?? throw new NullReferenceException("MasterKey"),
+    IvGenerationKey = builder.Configuration["DeterministicEncryption:IvGenerationKey"] ?? throw new NullReferenceException("IvGenerationKey")
+};
+builder.Services.AddSingleton(deterministicEncryptionConfig);
+#endregion
+
+#region Register Masterkey
+JwtConfig jwtConfig = new()
+{
+    SecretKey = builder.Configuration["JwtSettings:SecretKey"] ?? throw new NullReferenceException("SecretKey"),
+    Issuer = builder.Configuration["JwtSettings:Issuer"] ?? throw new NullReferenceException("Issuer"),
+    Audience = builder.Configuration["JwtSettings:Audience"] ?? throw new NullReferenceException("Audience"),
+    AccessTokenExpiryMinutes = int.Parse(builder.Configuration["JwtSettings:AccessTokenExpiryMinutes"] ?? throw new NullReferenceException("AccessTokenExpiryMinutes")),
+    RefreshTokenExpiryMinutes = int.Parse(builder.Configuration["JwtSettings:RefreshTokenExpiryMinutes"] ?? throw new NullReferenceException("RefreshTokenExpiryMinutes"))
+};
+builder.Services.AddSingleton(jwtConfig);
+#endregion
+
+builder.Services.AddTransient<IDbConnection>(sp => 
+    new NpgsqlConnection(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+#region Register repositories
+builder.Services.AddScoped<IKeyRepository, KeyRepository>();
+#endregion
+
+#region Register loggers
+builder.Services.AddScoped<IResultLogger, ConsoleResultLogger>();
+#endregion
+
+#region Register HttpErrorMappers (One per controller)
+builder.Services.AddScoped<IErrorHttpMapper<ChaChaEncryptionError>, ChaChaEncryptionErrorMapper>();
+#endregion
 
 #region Register services
 builder.Services.AddScoped<IAccount, AccountService>();
@@ -20,10 +68,6 @@ builder.Services.AddScoped<IChaChaEncryption, ChaChaEncryptionService>();
 builder.Services.AddScoped<IDeterministicEncryption, DeterministicAesEncryptionService>();
 builder.Services.AddScoped<IEncryption, EncryptionService>();
 builder.Services.AddScoped<ITimeProvider, SystemTimeProviderService>();
-#endregion
-
-#region Register repositories
-
 #endregion
 
 builder.Services.AddControllers();
