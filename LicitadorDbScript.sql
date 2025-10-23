@@ -15,15 +15,18 @@ CREATE TABLE "Auth"."Users" (
     "PasswordHash" VARCHAR(500) NOT NULL,
     "FullName" VARCHAR(255) NOT NULL,
     "IsActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "RefreshToken" VARCHAR(500) NULL,
+    "RefreshTokenExpirationDate" TIMESTAMPTZ NULL,
     "CreatedDate" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "UpdatedDate" TIMESTAMPTZ NULL,
-    
+
     CONSTRAINT "CK_Users_Email" CHECK ("Email" ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 );
 
 CREATE INDEX "IDX_Users_Email" ON "Auth"."Users"("Email");
 CREATE INDEX "IDX_Users_IsActive" ON "Auth"."Users"("IsActive");
 CREATE INDEX "IDX_Users_CreatedDate" ON "Auth"."Users"("CreatedDate" DESC);
+CREATE INDEX "IDX_Users_RefreshToken" ON "Auth"."Users"("RefreshToken");
 
 -- =====================================================
 -- SCHEMA: Company (Datos Empresariales)
