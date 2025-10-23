@@ -1,4 +1,4 @@
-﻿namespace Application.Core.DTOs.Account;
+﻿namespace Application.Core.DTOs.Auth;
 
 public sealed record LoginRequest
 {

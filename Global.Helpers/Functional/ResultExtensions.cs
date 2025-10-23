@@ -174,4 +174,10 @@ public static class ResultExtensions
             resource.Value.Dispose();
         }
     }
+
+    /// <summary>
+    /// Converts a synchronous Result to a Task-wrapped Result
+    /// </summary>
+    public static Task<Result<T, TError>> AsTask<T, TError>(this Result<T, TError> result) =>
+        Task.FromResult(result);
 }

@@ -1,39 +1,62 @@
-using Application.Core.Interfaces.Shared;
-using Global.Objects.Encryption;
+using Application.Core.DTOs.Auth;
+using Application.Core.Interfaces.Auth;
+using Global.Objects.Auth;
 using Licitador.WebAPI.Logging;
 using Licitador.WebAPI.Mappings;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Licitador.WebAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController// : FunctionalController
+public sealed class AuthController : FunctionalController
 {
-    /*private readonly IEncryption _encryptionService;
-    private readonly IErrorHttpMapper<ChaChaEncryptionError> _errorMapper;
+    private readonly IAuthentication _authenticationService;
+    private readonly IErrorHttpMapper<AuthError> _errorMapper;
 
     public AuthController(
-        IEncryption encryptionService,
-        IErrorHttpMapper<ChaChaEncryptionError> errorMapper,
-        IResultLogger logger) 
+        IAuthentication authenticationService,
+        IErrorHttpMapper<AuthError> errorMapper,
+        IResultLogger logger)
         : base(logger)
     {
-        _encryptionService = encryptionService;
+        _authenticationService = authenticationService;
         _errorMapper = errorMapper;
-    }*/
-    
-    /*[AllowAnonymous]
+    }
+
+    /// <summary>
+    /// Authenticates a user and returns JWT tokens
+    /// </summary>
+    /// <param name="request">Login credentials</param>
+    /// <returns>JWT tokens and user information</returns>
+    [AllowAnonymous]
     [HttpPost("login")]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status500InternalServerError)]
-    public Task<IActionResult> Login([FromBody] LoginRequest request)
-    {
-        return HandleOperationAsync(
-            () => _account.LoginAsync(request),
-            "There was an error with the login request.");
-    }*/
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public Task<IActionResult> Login([FromBody] LoginRequest request) =>
+        ExecuteAsync(
+            operation: () => _authenticationService.LoginAsync(request),
+            errorMapper: _errorMapper,
+            operationName: nameof(Login)
+        );
+
+    /// <summary>
+    /// Refreshes an access token using a refresh token
+    /// </summary>
+    /// <param name="request">Refresh token</param>
+    /// <returns>New JWT tokens and user information</returns>
+    [AllowAnonymous]
+    [HttpPost("refresh")]
+    [ProducesResponseType(typeof(LoginResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request) =>
+        ExecuteAsync(
+            operation: () => _authenticationService.RefreshTokenAsync(request),
+            errorMapper: _errorMapper,
+            operationName: nameof(RefreshToken)
+        );
 }

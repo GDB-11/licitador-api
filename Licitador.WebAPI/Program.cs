@@ -1,21 +1,24 @@
-using System.Data;
+using Application.Core.Config;
+using Application.Core.Interfaces.Auth;
+using Application.Core.Interfaces.Shared;
+using Application.Core.Services.Auth;
+using Application.Core.Services.Shared;
+using Global.Objects.Auth;
+using Global.Objects.Encryption;
+using Infrastructure.Core.Interfaces.Account;
+using Infrastructure.Core.Interfaces.Security;
+using Infrastructure.Core.Services.Account;
+using Infrastructure.Core.Services.Security;
+using Licitador.WebAPI.Logging;
+using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Scalar.AspNetCore;
-using System.Text;
-using Application.Core.Config;
-using Application.Core.Interfaces.Account;
-using Application.Core.Interfaces.Shared;
-using Application.Core.Services.Account;
-using Application.Core.Services.Shared;
-using Global.Objects.Encryption;
-using Infrastructure.Core.Interfaces.Security;
-using Infrastructure.Core.Services.Security;
-using Licitador.WebAPI.Logging;
-using Licitador.WebAPI.Mappings;
 using Npgsql;
+using Scalar.AspNetCore;
+using System.Data;
+using System.Text;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -51,6 +54,7 @@ builder.Services.AddTransient<IDbConnection>(sp =>
 
 #region Register repositories
 builder.Services.AddScoped<IKeyRepository, KeyRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 #endregion
 
 #region Register loggers
@@ -59,15 +63,19 @@ builder.Services.AddScoped<IResultLogger, ConsoleResultLogger>();
 
 #region Register HttpErrorMappers (One per controller)
 builder.Services.AddScoped<IErrorHttpMapper<ChaChaEncryptionError>, ChaChaEncryptionErrorMapper>();
+builder.Services.AddScoped<IErrorHttpMapper<AuthError>, AuthErrorMapper>();
 #endregion
 
 #region Register services
-builder.Services.AddScoped<IAccount, AccountService>();
+builder.Services.AddScoped<IJwt, JwtService>();
+builder.Services.AddScoped<IPassword, PasswordService>();
 builder.Services.AddScoped<IAsymmetricFieldEncryption, AsymmetricFieldEncryptionService>();
 builder.Services.AddScoped<IChaChaEncryption, ChaChaEncryptionService>();
 builder.Services.AddScoped<IDeterministicEncryption, DeterministicAesEncryptionService>();
 builder.Services.AddScoped<IEncryption, EncryptionService>();
 builder.Services.AddScoped<ITimeProvider, SystemTimeProviderService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IAuthentication, AuthenticationService>();
 #endregion
 
 builder.Services.AddControllers();
