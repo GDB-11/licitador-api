@@ -6,13 +6,20 @@ using Scalar.AspNetCore;
 using System.Text;
 using Application.Core.Interfaces;
 using Application.Core.Interfaces.Account;
+using Application.Core.Interfaces.Shared;
 using Application.Core.Services;
 using Application.Core.Services.Account;
+using Application.Core.Services.Shared;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 #region Register services
 builder.Services.AddScoped<IAccount, AccountService>();
+builder.Services.AddScoped<IAsymmetricFieldEncryption, AsymmetricFieldEncryptionService>();
+builder.Services.AddScoped<IChaChaEncryption, ChaChaEncryptionService>();
+builder.Services.AddScoped<IDeterministicEncryption, DeterministicAesEncryptionService>();
+builder.Services.AddScoped<IEncryption, EncryptionService>();
+builder.Services.AddScoped<ITimeProvider, SystemTimeProviderService>();
 #endregion
 
 #region Register repositories

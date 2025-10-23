@@ -1,19 +1,27 @@
-using Global.Objects.Results;
-using Licitador.WebAPI.Models;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity.Data;
+using Application.Core.Interfaces.Shared;
+using Global.Objects.Encryption;
+using Licitador.WebAPI.Logging;
+using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Licitador.WebAPI.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class AuthController : ApiControllerBase
+public class AuthController// : FunctionalController
 {
-    public AuthController()
+    /*private readonly IEncryption _encryptionService;
+    private readonly IErrorHttpMapper<ChaChaEncryptionError> _errorMapper;
+
+    public AuthController(
+        IEncryption encryptionService,
+        IErrorHttpMapper<ChaChaEncryptionError> errorMapper,
+        IResultLogger logger) 
+        : base(logger)
     {
-        
-    }
+        _encryptionService = encryptionService;
+        _errorMapper = errorMapper;
+    }*/
     
     /*[AllowAnonymous]
     [HttpPost("login")]
