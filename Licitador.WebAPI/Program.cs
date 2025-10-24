@@ -1,9 +1,12 @@
 using Application.Core.Config;
 using Application.Core.Interfaces.Auth;
+using Application.Core.Interfaces.Company;
 using Application.Core.Interfaces.Shared;
 using Application.Core.Services.Auth;
+using Application.Core.Services.Company;
 using Application.Core.Services.Shared;
 using Global.Objects.Auth;
+using Global.Objects.Company;
 using Global.Objects.Encryption;
 using Infrastructure.Core.Interfaces.Account;
 using Infrastructure.Core.Interfaces.Security;
@@ -64,6 +67,7 @@ builder.Services.AddScoped<IResultLogger, ConsoleResultLogger>();
 #region Register HttpErrorMappers (One per controller)
 builder.Services.AddScoped<IErrorHttpMapper<ChaChaEncryptionError>, ChaChaEncryptionErrorMapper>();
 builder.Services.AddScoped<IErrorHttpMapper<AuthError>, AuthErrorMapper>();
+builder.Services.AddScoped<IErrorHttpMapper<CompanyError>, CompanyErrorMapper>();
 #endregion
 
 #region Register services
@@ -76,6 +80,7 @@ builder.Services.AddScoped<IEncryption, EncryptionService>();
 builder.Services.AddScoped<ITimeProvider, SystemTimeProviderService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthentication, AuthenticationService>();
+builder.Services.AddScoped<ICompany, CompanyService>();
 #endregion
 
 builder.Services.AddControllers();

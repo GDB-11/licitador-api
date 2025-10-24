@@ -3,6 +3,7 @@ using Licitador.WebAPI.Extensions;
 using Licitador.WebAPI.Logging;
 using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Licitador.WebAPI.Controllers;
 
@@ -45,7 +46,36 @@ public abstract class FunctionalController : ControllerBase
         Func<T, IActionResult>? successMapper = null)
     {
         Result<T, TError> result = await operation();
-        
+
+        return result
+            .LogResult(_logger, operationName)
+            .ToHttpResult(errorMapper, successMapper);
+    }
+
+    /// <summary>
+    /// Executes an async operation with authenticated user context
+    /// Automatically extracts and validates the user ID from JWT claims
+    /// </summary>
+    protected async Task<IActionResult> ExecuteAuthenticatedAsync<T, TError>(
+        Func<Guid, Task<Result<T, TError>>> operation,
+        IErrorHttpMapper<TError> errorMapper,
+        string operationName,
+        Func<T, IActionResult>? successMapper = null)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out Guid userId))
+        {
+            await _logger.LogErrorAsync(operationName, "Invalid or missing user ID in JWT token");
+            return Unauthorized(new
+            {
+                error = "Unauthorized",
+                message = "Invalid authentication token"
+            });
+        }
+
+        Result<T, TError> result = await operation(userId);
+
         return result
             .LogResult(_logger, operationName)
             .ToHttpResult(errorMapper, successMapper);

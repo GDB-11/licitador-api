@@ -5,6 +5,7 @@ using Global.Objects.Functional;
 using Global.Objects.Results;
 using Infrastructure.Core.Interfaces.Account;
 using Infrastructure.Core.Models.Account;
+using Infrastructure.Core.Models.Company;
 using System.Data;
 
 namespace Infrastructure.Core.Services.Account;
@@ -50,6 +51,13 @@ public sealed class UserRepository : IUserRepository
         ResultExtensions.TryAsync(
             operation: () => ExecuteClearRefreshTokenAsync(userId),
             errorMessage: "An unexpected error occurred while clearing the refresh token."
+        )
+        .MapErrorAsync(error => new GenericError(error));
+
+    public Task<Result<Company?, GenericError>> GetUserFirstCompanyAsync(Guid userId) =>
+        ResultExtensions.TryAsync(
+            operation: () => ExecuteQueryUserFirstCompanyAsync(userId),
+            errorMessage: "An unexpected error occurred while retrieving the user's company."
         )
         .MapErrorAsync(error => new GenericError(error));
 
@@ -149,5 +157,25 @@ public sealed class UserRepository : IUserRepository
         );
 
         return Unit.Value;
+    }
+
+    private async Task<Company?> ExecuteQueryUserFirstCompanyAsync(Guid userId)
+    {
+        const string sql = """
+            SELECT
+                c."CompanyId", c."Ruc", c."RazonSocial", c."DomicilioLegal",
+                c."Telefono", c."Email", c."IsMype", c."CreatedDate", c."UpdatedDate"
+            FROM "Company"."Companies" c
+            INNER JOIN "Company"."UserCompanies" uc ON c."CompanyId" = uc."CompanyId"
+            WHERE uc."UserId" = @UserId
+                AND uc."IsActive" = TRUE
+            ORDER BY uc."CreatedDate" ASC
+            LIMIT 1
+            """;
+
+        return await _connection.QuerySingleOrDefaultAsync<Company>(
+            sql,
+            new { UserId = userId }
+        );
     }
 }
