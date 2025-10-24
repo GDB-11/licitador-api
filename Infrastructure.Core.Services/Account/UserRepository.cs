@@ -478,7 +478,7 @@ public sealed class UserRepository : IUserRepository
         RETURNING "LegalRepresentativeId"
         """;
 
-        var legalRepresentativeId = Guid.NewGuid();
+        var legalRepresentativeId = Guid.CreateVersion7();
 
         await _connection.ExecuteAsync(
             sql,
@@ -562,7 +562,7 @@ public sealed class UserRepository : IUserRepository
         RETURNING "BankAccountId"
         """;
 
-        var bankAccountId = Guid.NewGuid();
+        var bankAccountId = Guid.CreateVersion7();
 
         await _connection.ExecuteAsync(
             sql,
