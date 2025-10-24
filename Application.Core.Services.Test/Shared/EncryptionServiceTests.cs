@@ -4,7 +4,7 @@ using Global.Objects.Encryption;
 using Global.Objects.Results;
 using NSubstitute;
 
-namespace Application.Core.Services.Test;
+namespace Application.Core.Services.Test.Shared;
 
 public sealed class EncryptionServiceTests
 {

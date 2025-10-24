@@ -8,7 +8,7 @@ using Infrastructure.Core.Interfaces.Security;
 using Infrastructure.Core.Models.Security;
 using NSubstitute;
 
-namespace Application.Core.Services.Test;
+namespace Application.Core.Services.Test.Shared;
 
 public sealed class AsymmetricFieldEncryptionServiceTests
 {

@@ -42,24 +42,24 @@ public sealed class JwtService : IJwt
     private (string AccessToken, string RefreshToken, DateTime ExpiresAt) CreateTokens(User user)
     {
         DateTime expiresAt = _timeProvider.UtcNow.AddMinutes(_jwtConfig.AccessTokenExpiryMinutes);
+        DateTime issuedAt = _timeProvider.UtcNow;
 
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim(JwtRegisteredClaimNames.Name, user.FullName),
-            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new Claim(JwtRegisteredClaimNames.Iat, _timeProvider.UtcNow.ToString("O"))
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
         };
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtConfig.SecretKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
-
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
             Expires = expiresAt,
+            IssuedAt = issuedAt,
             Issuer = _jwtConfig.Issuer,
             Audience = _jwtConfig.Audience,
             SigningCredentials = credentials

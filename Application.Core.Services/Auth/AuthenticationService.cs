@@ -78,22 +78,6 @@ public sealed class AuthenticationService : IAuthentication
         return _userRepository.UpdateRefreshTokenAsync(userId, refreshToken, expirationDate);
     }
 
-    private Result<LoginResponse, AuthError> GenerateLoginResponse(User user) =>
-        _jwtService.GenerateTokens(user)
-            .Map(tokens => new LoginResponse
-            {
-                AccessToken = tokens.AccessToken,
-                RefreshToken = tokens.RefreshToken,
-                ExpiresAt = tokens.ExpiresAt,
-                User = new UserInfo
-                {
-                    UserId = user.UserId,
-                    Email = user.Email,
-                    FullName = user.FullName
-                }
-            })
-            .MapError(error => (AuthError)error);
-
     private static LoginResponse GenerateLoginResponse(User user, (string AccessToken, string RefreshToken, DateTime ExpiresAt) tokens) =>
        new()
        {

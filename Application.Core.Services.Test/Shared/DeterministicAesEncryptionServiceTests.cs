@@ -4,7 +4,7 @@ using Application.Core.Services.Shared;
 using Global.Objects.Encryption;
 using System.Text;
 
-namespace Application.Core.Services.Test;
+namespace Application.Core.Services.Test.Shared;
 
 public sealed class DeterministicAesEncryptionServiceTests : IDisposable
 {
