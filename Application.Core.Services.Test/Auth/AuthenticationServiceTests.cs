@@ -452,6 +452,144 @@ public sealed class AuthenticationServiceTests
 
     #endregion
 
+    #region LogoutAsync Tests
+
+    [Fact]
+    public async Task LogoutAsync_WithValidRefreshToken_ReturnsSuccess()
+    {
+        // Arrange
+        var request = new LogoutRequest { RefreshToken = "valid_refresh_token" };
+        var user = CreateTestUser();
+
+        _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
+            .Returns(Result<User?, GenericError>.Success(user));
+        _userRepository.ClearRefreshTokenAsync(user.UserId)
+            .Returns(Result<Unit, GenericError>.Success(Unit.Value));
+
+        // Act
+        var result = await _sut.LogoutAsync(request);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+        Assert.Equal(Unit.Value, result.Value);
+
+        await _userRepository.Received(1).GetByRefreshTokenAsync(request.RefreshToken);
+        await _userRepository.Received(1).ClearRefreshTokenAsync(user.UserId);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WithInvalidRefreshToken_ReturnsInvalidRefreshTokenError()
+    {
+        // Arrange
+        var request = new LogoutRequest { RefreshToken = "invalid_token" };
+
+        _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
+            .Returns(Result<User?, GenericError>.Success((User?)null));
+
+        // Act
+        var result = await _sut.LogoutAsync(request);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.IsType<InvalidRefreshTokenError>(result.Error);
+        Assert.Equal("Invalid or expired refresh token", result.Error.Message);
+
+        await _userRepository.Received(1).GetByRefreshTokenAsync(request.RefreshToken);
+        await _userRepository.DidNotReceive().ClearRefreshTokenAsync(Arg.Any<Guid>());
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WithExpiredRefreshToken_ReturnsInvalidRefreshTokenError()
+    {
+        // Arrange
+        var request = new LogoutRequest { RefreshToken = "expired_token" };
+
+        // GetByRefreshTokenAsync already checks expiration in the WHERE clause
+        _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
+            .Returns(Result<User?, GenericError>.Success((User?)null));
+
+        // Act
+        var result = await _sut.LogoutAsync(request);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.IsType<InvalidRefreshTokenError>(result.Error);
+
+        await _userRepository.Received(1).GetByRefreshTokenAsync(request.RefreshToken);
+        await _userRepository.DidNotReceive().ClearRefreshTokenAsync(Arg.Any<Guid>());
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WhenRepositoryGetFails_ReturnsInvalidRefreshTokenError()
+    {
+        // Arrange
+        var request = new LogoutRequest { RefreshToken = "some_token" };
+        var repositoryError = new GenericError("Database error");
+
+        _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
+            .Returns(Result<User?, GenericError>.Failure(repositoryError));
+
+        // Act
+        var result = await _sut.LogoutAsync(request);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.IsType<InvalidRefreshTokenError>(result.Error);
+
+        await _userRepository.Received(1).GetByRefreshTokenAsync(request.RefreshToken);
+        await _userRepository.DidNotReceive().ClearRefreshTokenAsync(Arg.Any<Guid>());
+    }
+
+    [Fact]
+    public async Task LogoutAsync_WhenClearRefreshTokenFails_ReturnsJwtGenerationError()
+    {
+        // Arrange
+        var request = new LogoutRequest { RefreshToken = "valid_token" };
+        var user = CreateTestUser();
+        var clearError = new GenericError("Database error", "Failed to update user");
+
+        _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
+            .Returns(Result<User?, GenericError>.Success(user));
+        _userRepository.ClearRefreshTokenAsync(user.UserId)
+            .Returns(Result<Unit, GenericError>.Failure(clearError));
+
+        // Act
+        var result = await _sut.LogoutAsync(request);
+
+        // Assert
+        Assert.False(result.IsSuccess);
+        Assert.IsType<JwtGenerationError>(result.Error);
+        Assert.Equal("Failed to clear refresh token", result.Error.Details);
+        Assert.Equal("Failed to generate JWT token", result.Error.Message);
+
+        await _userRepository.Received(1).GetByRefreshTokenAsync(request.RefreshToken);
+        await _userRepository.Received(1).ClearRefreshTokenAsync(user.UserId);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_ClearsRefreshTokenForCorrectUser()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var request = new LogoutRequest { RefreshToken = "user_specific_token" };
+        var user = CreateTestUser(userId: userId);
+
+        _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
+            .Returns(Result<User?, GenericError>.Success(user));
+        _userRepository.ClearRefreshTokenAsync(userId)
+            .Returns(Result<Unit, GenericError>.Success(Unit.Value));
+
+        // Act
+        var result = await _sut.LogoutAsync(request);
+
+        // Assert
+        Assert.True(result.IsSuccess);
+
+        await _userRepository.Received(1).ClearRefreshTokenAsync(userId);
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static User CreateTestUser(

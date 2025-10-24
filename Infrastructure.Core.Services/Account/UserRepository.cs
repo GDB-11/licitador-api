@@ -46,6 +46,13 @@ public sealed class UserRepository : IUserRepository
         )
         .MapErrorAsync(error => new GenericError(error));
 
+    public Task<Result<Unit, GenericError>> ClearRefreshTokenAsync(Guid userId) =>
+        ResultExtensions.TryAsync(
+            operation: () => ExecuteClearRefreshTokenAsync(userId),
+            errorMessage: "An unexpected error occurred while clearing the refresh token."
+        )
+        .MapErrorAsync(error => new GenericError(error));
+
     private async Task<User?> ExecuteQueryByEmailAsync(string email)
     {
         const string sql = """
@@ -115,6 +122,28 @@ public sealed class UserRepository : IUserRepository
                 UserId = userId,
                 RefreshToken = refreshToken,
                 ExpirationDate = expirationDate,
+                UpdatedDate = DateTime.UtcNow
+            }
+        );
+
+        return Unit.Value;
+    }
+
+    private async Task<Unit> ExecuteClearRefreshTokenAsync(Guid userId)
+    {
+        const string sql = """
+            UPDATE "Auth"."Users"
+            SET "RefreshToken" = NULL,
+                "RefreshTokenExpirationDate" = NULL,
+                "UpdatedDate" = @UpdatedDate
+            WHERE "UserId" = @UserId
+            """;
+
+        await _connection.ExecuteAsync(
+            sql,
+            new
+            {
+                UserId = userId,
                 UpdatedDate = DateTime.UtcNow
             }
         );

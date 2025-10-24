@@ -59,4 +59,23 @@ public sealed class AuthController : FunctionalController
             errorMapper: _errorMapper,
             operationName: nameof(RefreshToken)
         );
+
+    /// <summary>
+    /// Logs out a user by invalidating their refresh token
+    /// </summary>
+    /// <param name="request">Refresh token to invalidate</param>
+    /// <returns>No content on success</returns>
+    [AllowAnonymous]
+    [HttpPost("logout")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> Logout([FromBody] LogoutRequest request) =>
+        await ExecuteAsync(
+            operation: () => _authenticationService.LogoutAsync(request),
+            errorMapper: _errorMapper,
+            operationName: nameof(Logout),
+            successMapper: _ => NoContent()
+        );
 }

@@ -48,6 +48,13 @@ public sealed class AuthenticationService : IAuthentication
             .BindAsync(user => ValidateUserActive(user))
             .BindAsync(user => GenerateAndStoreNewTokens(user));
 
+    public Task<Result<Unit, AuthError>> LogoutAsync(LogoutRequest request) =>
+        _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
+            .MapErrorAsync(error => (AuthError)new InvalidRefreshTokenError())
+            .EnsureNotNullAsync(new InvalidRefreshTokenError())
+            .BindAsync(user => _userRepository.ClearRefreshTokenAsync(user.UserId)
+                .MapErrorAsync(error => (AuthError)new JwtGenerationError("Failed to clear refresh token", null)));
+
     private Task<Result<LoginResponse, AuthError>> ValidateUserCredentials(User user, string password)
     {
         if (!user.IsActive)
