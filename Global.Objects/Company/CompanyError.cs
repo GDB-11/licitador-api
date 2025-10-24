@@ -10,3 +10,9 @@ public sealed record InvalidUserIdError()
 
 public sealed record CompanyRepositoryError(string Details, Exception? Exception = null)
     : CompanyError("An error occurred while retrieving company information", Details, Exception);
+
+public sealed record CompanyUnauthorizedAccessError()
+    : CompanyError("User does not have access to the specified company");
+
+public sealed record CompanyValidationError(string Details)
+    : CompanyError("Invalid company data provided", Details);

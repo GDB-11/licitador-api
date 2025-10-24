@@ -40,9 +40,10 @@ CREATE TABLE "Company"."Companies" (
     "Telefono" VARCHAR(50) NULL,
     "Email" VARCHAR(255) NOT NULL,
     "IsMype" BOOLEAN NOT NULL DEFAULT FALSE,
+    "FechaConstitucion" DATE NULL,
     "CreatedDate" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "UpdatedDate" TIMESTAMPTZ NULL,
-    
+
     CONSTRAINT "CK_Companies_Ruc" CHECK ("Ruc" ~ '^[0-9]{11}$'),
     CONSTRAINT "CK_Companies_Email" CHECK ("Email" ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 );
@@ -80,13 +81,14 @@ CREATE TABLE "Company"."LegalRepresentatives" (
     "PowerRegistrationLocation" VARCHAR(255) NULL,
     "PowerRegistrationSheet" VARCHAR(100) NULL,
     "PowerRegistrationEntry" VARCHAR(100) NULL,
+    "NationalIdImage" BYTEA NULL,  -- recommended: raw bytes
     "IsActive" BOOLEAN NOT NULL DEFAULT TRUE,
     "CreatedDate" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "UpdatedDate" TIMESTAMPTZ NULL,
-    
-    CONSTRAINT "FK_LegalRepresentatives_Companies" FOREIGN KEY ("CompanyId") 
+
+    CONSTRAINT "FK_LegalRepresentatives_Companies" FOREIGN KEY ("CompanyId")
         REFERENCES "Company"."Companies"("CompanyId") ON DELETE CASCADE,
-    CONSTRAINT "CK_LegalRepresentatives_DocumentType" 
+    CONSTRAINT "CK_LegalRepresentatives_DocumentType"
         CHECK ("DocumentType" IN ('DNI', 'CE', 'Pasaporte', 'Carnet de Extranjería'))
 );
 

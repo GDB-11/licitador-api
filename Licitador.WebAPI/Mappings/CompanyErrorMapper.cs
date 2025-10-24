@@ -20,6 +20,22 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyError>
                 message = error.Message
             }),
 
+            CompanyUnauthorizedAccessError => new ObjectResult(new
+            {
+                error = "Forbidden",
+                message = error.Message
+            })
+            {
+                StatusCode = StatusCodes.Status403Forbidden
+            },
+
+            CompanyValidationError validation => new BadRequestObjectResult(new
+            {
+                error = "ValidationError",
+                message = validation.Message,
+                details = validation.Details
+            }),
+
             CompanyRepositoryError repository => new ObjectResult(new
             {
                 error = "InternalServerError",
