@@ -129,6 +129,48 @@ CREATE TABLE "Company"."NotificationSettings" (
 
 CREATE INDEX "IDX_NotificationSettings_CompanyId" ON "Company"."NotificationSettings"("CompanyId");
 
+CREATE TABLE "Company"."ConsortiumCompanies" (
+    "ConsortiumCompanyId" UUID PRIMARY KEY DEFAULT uuidv7(),
+    "CompanyId" UUID NOT NULL,  -- La empresa que registra la consorciada
+    "Ruc" CHAR(11) NOT NULL,
+    "RazonSocial" VARCHAR(500) NOT NULL,
+    "NombreComercial" VARCHAR(500) NULL,
+    "DomicilioFiscal" VARCHAR(1000) NOT NULL,
+    
+    -- Representante Legal
+    "LegalRepDni" VARCHAR(20) NOT NULL,
+    "LegalRepFullName" VARCHAR(255) NOT NULL,
+    "LegalRepPosition" VARCHAR(100) NOT NULL,
+    
+    -- Contacto
+    "ContactPhone" VARCHAR(50) NOT NULL,
+    "ContactEmail" VARCHAR(255) NOT NULL,
+    
+    -- Datos adicionales
+    "MainActivity" VARCHAR(500) NULL,
+    "RnpRegistration" VARCHAR(100) NULL,
+    "RnpValidUntil" DATE NULL,
+    
+    -- Control
+    "IsActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "CreatedDate" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "UpdatedDate" TIMESTAMPTZ NULL,
+    
+    CONSTRAINT "FK_ConsortiumCompanies_Companies" FOREIGN KEY ("CompanyId") 
+        REFERENCES "Company"."Companies"("CompanyId") ON DELETE CASCADE,
+    CONSTRAINT "CK_ConsortiumCompanies_Ruc" CHECK ("Ruc" ~ '^[0-9]{11}$'),
+    CONSTRAINT "CK_ConsortiumCompanies_ContactEmail" 
+        CHECK ("ContactEmail" ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
+    -- Evitar que la misma empresa registre dos veces la misma consorciada
+    CONSTRAINT "UK_ConsortiumCompanies_Company_Ruc" UNIQUE ("CompanyId", "Ruc")
+);
+
+CREATE INDEX "IDX_ConsortiumCompanies_CompanyId" ON "Company"."ConsortiumCompanies"("CompanyId");
+CREATE INDEX "IDX_ConsortiumCompanies_Ruc" ON "Company"."ConsortiumCompanies"("Ruc");
+CREATE INDEX "IDX_ConsortiumCompanies_IsActive" ON "Company"."ConsortiumCompanies"("IsActive");
+CREATE INDEX "IDX_ConsortiumCompanies_CreatedDate" ON "Company"."ConsortiumCompanies"("CreatedDate" DESC);
+CREATE INDEX "IDX_ConsortiumCompanies_RnpValidUntil" ON "Company"."ConsortiumCompanies"("RnpValidUntil");
+
 -- =====================================================
 -- SCHEMA: Document (Gestión de Documentos)
 -- =====================================================
@@ -234,5 +276,10 @@ CREATE TRIGGER "TR_GeneratedDocuments_UpdateTimestamp"
 
 CREATE TRIGGER "TR_NotificationSettings_UpdateTimestamp"
     BEFORE UPDATE ON "Company"."NotificationSettings"
+    FOR EACH ROW
+    EXECUTE FUNCTION "UpdateTimestamp"();
+
+CREATE TRIGGER "TR_ConsortiumCompanies_UpdateTimestamp"
+    BEFORE UPDATE ON "Company"."ConsortiumCompanies"
     FOR EACH ROW
     EXECUTE FUNCTION "UpdateTimestamp"();

@@ -6,7 +6,7 @@ namespace Licitador.WebAPI.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public sealed class ConsortiumController
+public sealed class DocumentController
 {
-    
+
 }
