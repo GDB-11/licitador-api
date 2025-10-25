@@ -158,18 +158,22 @@ builder.Services.AddCors(options =>
     options.AddPolicy("DevelopmentCors", policy =>
     {
         policy.WithOrigins("http://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 
-    /*options.AddPolicy("ProductionCors", policy =>
+    options.AddPolicy("ProductionCors", policy =>
     {
-        policy.WithOrigins(builder.Configuration["AllowedOrigins"])
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });*/
+        var allowedOrigins = builder.Configuration
+            .GetSection("AllowedOrigins")
+            .Get<string[]>() ?? Array.Empty<string>();
+        
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
 });
 
 var app = builder.Build();
