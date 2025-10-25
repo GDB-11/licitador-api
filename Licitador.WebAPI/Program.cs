@@ -1,12 +1,15 @@
 using Application.Core.Config;
 using Application.Core.Interfaces.Auth;
 using Application.Core.Interfaces.Company;
+using Application.Core.Interfaces.Document;
 using Application.Core.Interfaces.Shared;
 using Application.Core.Services.Auth;
 using Application.Core.Services.Company;
+using Application.Core.Services.Document;
 using Application.Core.Services.Shared;
 using Global.Objects.Auth;
 using Global.Objects.Company;
+using Global.Objects.Document;
 using Global.Objects.Encryption;
 using Infrastructure.Core.Interfaces.Account;
 using Infrastructure.Core.Interfaces.Security;
@@ -68,6 +71,7 @@ builder.Services.AddScoped<IResultLogger, ConsoleResultLogger>();
 builder.Services.AddScoped<IErrorHttpMapper<ChaChaEncryptionError>, ChaChaEncryptionErrorMapper>();
 builder.Services.AddScoped<IErrorHttpMapper<AuthError>, AuthErrorMapper>();
 builder.Services.AddScoped<IErrorHttpMapper<CompanyError>, CompanyErrorMapper>();
+builder.Services.AddScoped<IErrorHttpMapper<DocumentError>, DocumentErrorMapper>();
 #endregion
 
 #region Register services
@@ -81,6 +85,7 @@ builder.Services.AddScoped<ITimeProvider, SystemTimeProviderService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthentication, AuthenticationService>();
 builder.Services.AddScoped<ICompany, CompanyService>();
+builder.Services.AddScoped<IDocument, DocumentService>();
 #endregion
 
 builder.Services.AddControllers();
