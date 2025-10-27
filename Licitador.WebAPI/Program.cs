@@ -85,6 +85,7 @@ builder.Services.AddScoped<ITimeProvider, SystemTimeProviderService>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthentication, AuthenticationService>();
 builder.Services.AddScoped<ICompany, CompanyService>();
+builder.Services.AddScoped<WordTemplateService>();
 builder.Services.AddScoped<IDocument, DocumentService>();
 #endregion
 
