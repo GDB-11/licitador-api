@@ -1,13 +1,12 @@
 ﻿using Application.Core.Config;
 using Application.Core.DTOs.Account;
-using Application.Core.DTOs.Auth;
+using Application.Core.DTOs.Auth.Errors;
+using Application.Core.DTOs.Auth.Request;
+using Application.Core.DTOs.Auth.Response;
 using Application.Core.Interfaces.Auth;
 using Application.Core.Interfaces.Shared;
-using Global.Helpers.Functional;
-using Global.Objects.Auth;
-using Global.Objects.Errors;
-using Global.Objects.Functional;
-using Global.Objects.Results;
+using BindSharp;
+using BindSharp.Extensions;
 using Infrastructure.Core.Interfaces.Account;
 using Infrastructure.Core.Models.Account;
 
@@ -35,54 +34,54 @@ public sealed class AuthenticationService : IAuthentication
         _jwtConfig = jwtConfig;
     }
 
-    public Task<Result<LoginResponse, AuthError>> LoginAsync(LoginRequest request) =>
+    public Task<Result<LoginResponse, AuthenticationError>> LoginAsync(LoginRequest request) =>
         _userRepository.GetByEmailAsync(request.Email)
-            .MapErrorAsync(error => (AuthError)new InvalidCredentialsError())
-            .EnsureNotNullAsync(new InvalidCredentialsError())
+            .MapErrorAsync(AuthenticationError (error) => new GetByEmailAsyncError(error.Message, error.Details, error.Exception))
+            .EnsureNotNullAsync(new UserNotFoundError())
             .BindAsync(user => ValidateUserCredentials(user, request.Password));
 
-    public Task<Result<LoginResponse, AuthError>> RefreshTokenAsync(RefreshTokenRequest request) =>
+    public Task<Result<LoginResponse, AuthenticationError>> RefreshTokenAsync(RefreshTokenRequest request) =>
         _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
-            .MapErrorAsync(error => (AuthError)new InvalidRefreshTokenError())
-            .EnsureNotNullAsync(new InvalidRefreshTokenError())
-            .BindAsync(user => ValidateUserActive(user))
-            .BindAsync(user => GenerateAndStoreNewTokens(user));
+            .MapErrorAsync(AuthenticationError (error) => new GetByRefreshTokenAsyncError(error.Message, error.Details, error.Exception))
+            .EnsureNotNullAsync(new RefreshTokenNotFoundError())
+            .BindAsync(ValidateUserActive)
+            .BindAsync(GenerateAndStoreNewTokens);
 
-    public Task<Result<Unit, AuthError>> LogoutAsync(LogoutRequest request) =>
+    public Task<Result<Unit, AuthenticationError>> LogoutAsync(LogoutRequest request) =>
         _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
-            .MapErrorAsync(error => (AuthError)new InvalidRefreshTokenError())
-            .EnsureNotNullAsync(new InvalidRefreshTokenError())
+            .MapErrorAsync(AuthenticationError (error) => new GetByRefreshTokenAsyncError(error.Message, error.Details, error.Exception))
+            .EnsureNotNullAsync(new RefreshTokenNotFoundError())
             .BindAsync(user => _userRepository.ClearRefreshTokenAsync(user.UserId)
-                .MapErrorAsync(error => (AuthError)new JwtGenerationError("Failed to clear refresh token", null)));
+                .MapErrorAsync(AuthenticationError (error) => new JwtGenerationError()));
 
-    private Task<Result<LoginResponse, AuthError>> ValidateUserCredentials(User user, string password)
+    private Task<Result<LoginResponse, AuthenticationError>> ValidateUserCredentials(User user, string password)
     {
         if (!user.IsActive)
-            return Task.FromResult(Result<LoginResponse, AuthError>.Failure(new UserInactiveError()));
+            return Task.FromResult(Result<LoginResponse, AuthenticationError>.Failure(new UserInactiveError()));
 
         return _passwordService.VerifyPassword(password, user.PasswordHash)
-            .MapError(encryptionError => (AuthError)new InvalidCredentialsError())
-            .BindAsync(isValid => isValid
-                ? GenerateAndStoreNewTokens(user)
-                : Task.FromResult(Result<LoginResponse, AuthError>.Failure(new InvalidCredentialsError())));
+            .MapError(AuthenticationError (encryptionError) => new ChaChaDecryptError(encryptionError.Message, encryptionError.Details, encryptionError.Exception))
+            .Ensure(isValid => isValid, new InvalidUserTokenError())
+            .BindAsync(_ => GenerateAndStoreNewTokens(user));
     }
 
-    private static Result<User, AuthError> ValidateUserActive(User user) =>
+    private static Result<User, AuthenticationError> ValidateUserActive(User user) =>
         user.IsActive
-            ? Result<User, AuthError>.Success(user)
-            : Result<User, AuthError>.Failure(new UserInactiveError());
+            ? user
+            : new UserInactiveError();
 
-    private Task<Result<LoginResponse, AuthError>> GenerateAndStoreNewTokens(User user) =>
+    private Task<Result<LoginResponse, AuthenticationError>> GenerateAndStoreNewTokens(User user) =>
         _jwtService.GenerateTokens(user)
-            .MapError(error => (AuthError)error)
+            .MapError(AuthenticationError (error) => error)
             .BindAsync(tokens => StoreRefreshToken(user.UserId, tokens.RefreshToken)
-                .MapErrorAsync(error => (AuthError)new JwtGenerationError("Failed to store refresh token", null))
+                .MapErrorAsync(AuthenticationError (error) => new JwtStorageError(error.Details, error.Exception))
                 .MapAsync(_ => GenerateLoginResponse(user, tokens)));
 
-    private Task<Result<Unit, GenericError>> StoreRefreshToken(Guid userId, string refreshToken)
+    private Task<Result<Unit, AuthenticationError>> StoreRefreshToken(Guid userId, string refreshToken)
     {
         DateTime expirationDate = _timeProvider.UtcNow.AddMinutes(_jwtConfig.RefreshTokenExpiryMinutes);
-        return _userRepository.UpdateRefreshTokenAsync(userId, refreshToken, expirationDate);
+        return _userRepository.UpdateRefreshTokenAsync(userId, refreshToken, expirationDate)
+            .MapErrorAsync(AuthenticationError (error) => new StoreRefreshTokenError(error.Message, error.Details, error.Exception));
     }
 
     private static LoginResponse GenerateLoginResponse(User user, (string AccessToken, string RefreshToken, DateTime ExpiresAt) tokens) =>

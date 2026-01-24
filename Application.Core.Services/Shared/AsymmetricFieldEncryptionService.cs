@@ -1,16 +1,13 @@
 ﻿using System.Reflection;
 using System.Security.Cryptography;
-using System.Text;
-using Application.Core.DTOs.Encryption;
+using Application.Core.DTOs.Encryption.Errors;
+using Application.Core.DTOs.Encryption.Response;
 using Application.Core.Interfaces.Shared;
+using BindSharp;
+using BindSharp.Extensions;
 using Global.Attributes;
 using Global.Helpers.Encryption;
-using Global.Helpers.Functional;
 using Global.Helpers.Reflection;
-using Global.Objects.Encryption;
-using Global.Objects.Errors;
-using Global.Objects.Functional;
-using Global.Objects.Results;
 using Infrastructure.Core.Interfaces.Security;
 using Infrastructure.Core.Models.Security;
 
@@ -27,91 +24,66 @@ public sealed class AsymmetricFieldEncryptionService : IAsymmetricFieldEncryptio
         _keyRepository = keyRepository;
     }
 
-    public Task<Result<PublicKeyResponse, EncryptionError>> GenerateNewKeyPairAsync() =>
-        RsaHelpers.GenerateKeyPair()
-            .Map(keys => CreateKeyPair(keys.PublicKey, keys.PrivateKey))
-            .BindAsync(PersistKeyPairAsync)
+    public async Task<Result<PublicKeyResponse, EncryptionError>> GenerateNewKeyPairAsync() =>
+        await RsaHelpers.GenerateKeyPair()
+            .MapError(EncryptionError (ex) => new GenerateNewKeyPairAsyncError(ex.Message, ex))
+            .Map(keys => new KeyPair
+            {
+                Id = Guid.CreateVersion7(),
+                PublicKey = keys.PublicKey,
+                PrivateKey = keys.PrivateKey,
+                IsActive = true,
+                ExpiresAt = _timeProvider.UtcNow.AddMinutes(30)
+            })
+            .BindAsync(async keyPair => 
+                await _keyRepository.AddAsync(keyPair)
+                    .MapErrorAsync(EncryptionError (secError) => new PersistKeyPairAsyncError(secError.Message, secError.Exception))
+                    .MapAsync(_ => keyPair))
             .MapAsync(keyPair => new PublicKeyResponse
             {
                 KeyPairId = keyPair.Id,
                 PublicKey = keyPair.PublicKey
             });
-
-    public Task<Result<T, EncryptionError>> DecryptRequestAsync<T>(Guid keyPairId, T encryptedRequest) 
-        where T : class =>
-        GetActiveKeyPairAsync(keyPairId)
-            .BindAsync(keyPair => ValidateKeyNotUsedAsync(keyPair))
-            .BindAsync(keyPair => DecryptObjectAsync(keyPair, encryptedRequest))
-            .TapAsync(async _ => await DeactivateKeyAsync(keyPairId));
-
-    private KeyPair CreateKeyPair(string publicKey, string privateKey) => new()
-    {
-        Id = Guid.CreateVersion7(),
-        PublicKey = publicKey,
-        PrivateKey = privateKey,
-        IsActive = true,
-        ExpiresAt = _timeProvider.UtcNow.AddMinutes(30)
-    };
-
-    private async Task<Result<KeyPair, EncryptionError>> PersistKeyPairAsync(KeyPair keyPair) =>
-        (await _keyRepository.AddAsync(keyPair))
-            .MapError(error => new KeyGenerationError(error.Message, error.Exception) as EncryptionError)
-            .Map(_ => keyPair);
-
-    private async Task<Result<KeyPair, EncryptionError>> GetActiveKeyPairAsync(Guid keyPairId) =>
-        (await _keyRepository.GetByIdAsync(keyPairId))
-            .MapError(error => new KeyNotFoundError(error.Message, error.Exception) as EncryptionError);
-
-    private static Task<Result<KeyPair, EncryptionError>> ValidateKeyNotUsedAsync(KeyPair keyPair) =>
-        Task.FromResult(
-            keyPair.UsedAt.HasValue
-                ? Result<KeyPair, EncryptionError>.Failure(
-                    new KeyAlreadyUsedError("The key has already been used"))
-                : Result<KeyPair, EncryptionError>.Success(keyPair)
-        );
-
-    private static Task<Result<T, EncryptionError>> DecryptObjectAsync<T>(
-        KeyPair keyPair, 
-        T encryptedObject) where T : class =>
-        RsaHelpers.ImportPrivateKey(keyPair.PrivateKey)
-            .UsingAsync(rsa => Task.FromResult(DecryptAllProperties(rsa, encryptedObject)));
+    
+    public async Task<Result<T, EncryptionError>> DecryptRequestAsync<T>(Guid keyPairId, T encryptedRequest) 
+    where T : class =>
+        await _keyRepository.GetByIdAsync(keyPairId)
+            .MapErrorAsync(EncryptionError (error) => new GetKeyError(error.Details, error.Exception))
+            .EnsureNotNullAsync(new KeyNotFoundError())
+            .EnsureAsync(
+                keyPair => !keyPair.UsedAt.HasValue, 
+                new KeyAlreadyUsedError())
+            .BindAsync(keyPair => 
+                RsaHelpers.ImportPrivateKey(keyPair.PrivateKey)
+                    .MapError(EncryptionError (ex) => new ImportPrivateKeyError())
+                    .UsingAsync(rsa => Task.FromResult(DecryptAllProperties(rsa, encryptedRequest)))
+            )
+            .TapAsync(async _ => await _keyRepository.DeactivateKeyAsync(keyPairId));
 
     private static Result<T, EncryptionError> DecryptAllProperties<T>(RSA rsa, T encryptedObject) 
         where T : class =>
         ReflectionHelpers.CreateInstance<T>()
-            .Bind(decryptedObject => ProcessAllProperties(rsa, encryptedObject, decryptedObject));
-
-    private static Result<T, EncryptionError> ProcessAllProperties<T>(
-        RSA rsa,
-        T source,
-        T destination) where T : class
-    {
-        var properties = ReflectionHelpers.GetAllProperties<T>();
-        
-        foreach (PropertyInfo property in properties)
-        {
-            Result<Unit, EncryptionError> result = ProcessSingleProperty(rsa, property, source, destination);
-            
-            if (result.IsFailure)
-                return Result<T, EncryptionError>.Failure(result.Error);
-        }
-        
-        return Result<T, EncryptionError>.Success(destination);
-    }
-
-    private static Result<Unit, EncryptionError> ProcessSingleProperty(
-        RSA rsa,
-        PropertyInfo property,
-        object source,
-        object destination)
-    {
-        bool isEncrypted = property.GetCustomAttribute<EncryptedFieldAttribute>() is not null;
-        object? value = property.GetValue(source);
-
-        return isEncrypted && value is not null
-            ? DecryptAndSetProperty(rsa, property, value, destination)
-            : ReflectionHelpers.CopyProperty(property, source, destination);
-    }
+            .MapError(EncryptionError (ex) => new CreateInstanceError(ex))
+            .Bind(decryptedObject => 
+            {
+                var properties = ReflectionHelpers.GetAllProperties<T>();
+                
+                foreach (var property in properties)
+                {
+                    bool isEncrypted = property.GetCustomAttribute<EncryptedFieldAttribute>() is not null;
+                    object? value = property.GetValue(encryptedObject);
+                    
+                    var result = isEncrypted && value is not null
+                        ? DecryptAndSetProperty(rsa, property, value, decryptedObject)
+                        : ReflectionHelpers.CopyProperty(property, encryptedObject, decryptedObject)
+                            .MapError(EncryptionError (ex) => new CopyPropertyError(ex));
+                    
+                    if (result.IsFailure)
+                        return Result<T, EncryptionError>.Failure(result.Error);
+                }
+                
+                return Result<T, EncryptionError>.Success(decryptedObject);
+            });
 
     private static Result<Unit, EncryptionError> DecryptAndSetProperty(
         RSA rsa,
@@ -122,15 +94,13 @@ public sealed class AsymmetricFieldEncryptionService : IAsymmetricFieldEncryptio
         string? encryptedString = encryptedValue.ToString();
 
         if (string.IsNullOrEmpty(encryptedString))
-            return ReflectionHelpers.SetPropertyValue(property, destination, string.Empty);
+            return ReflectionHelpers.SetPropertyValue(property, destination, string.Empty)
+                .MapError(EncryptionError (ex) => new SetPropertyValueError(ex));
 
         return RsaHelpers.DecryptValue(rsa, encryptedString, property.Name)
+            .MapError(EncryptionError (ex) => new DecryptValueError(ex))
             .Bind(decryptedValue => 
                 ReflectionHelpers.SetPropertyValue(property, destination, decryptedValue)
-            );
+                    .MapError(EncryptionError (ex) => new SetPropertyValueError(ex)));
     }
-
-    private async Task<Result<Unit, EncryptionError>> DeactivateKeyAsync(Guid keyPairId) =>
-        (await _keyRepository.DeactivateKeyAsync(keyPairId))
-            .MapError(EncryptionError (error) => new DecryptionError("Failed to deactivate key", Exception: error.Exception));
 }

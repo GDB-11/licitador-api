@@ -1,4 +1,4 @@
-﻿using Global.Objects.Document;
+﻿using Application.Core.DTOs.Document.Errors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Licitador.WebAPI.Mappings;

@@ -1,6 +1,7 @@
-using Application.Core.DTOs.Auth;
+using Application.Core.DTOs.Auth.Errors;
+using Application.Core.DTOs.Auth.Request;
+using Application.Core.DTOs.Auth.Response;
 using Application.Core.Interfaces.Auth;
-using Global.Objects.Auth;
 using Licitador.WebAPI.Logging;
 using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Authorization;
@@ -13,11 +14,11 @@ namespace Licitador.WebAPI.Controllers;
 public sealed class AuthController : FunctionalController
 {
     private readonly IAuthentication _authenticationService;
-    private readonly IErrorHttpMapper<AuthError> _errorMapper;
+    private readonly IErrorHttpMapper<AuthenticationError> _errorMapper;
 
     public AuthController(
         IAuthentication authenticationService,
-        IErrorHttpMapper<AuthError> errorMapper,
+        IErrorHttpMapper<AuthenticationError> errorMapper,
         IResultLogger logger)
         : base(logger)
     {

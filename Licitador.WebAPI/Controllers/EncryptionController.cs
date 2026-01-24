@@ -1,7 +1,8 @@
-﻿using Application.Core.DTOs.Encryption;
+﻿using Application.Core.DTOs.Encryption.Errors;
+using Application.Core.DTOs.Encryption.Request;
+using Application.Core.DTOs.Encryption.Response;
 using Application.Core.Interfaces.Shared;
-using Global.Helpers.Functional;
-using Global.Objects.Encryption;
+using BindSharp;
 using Licitador.WebAPI.Logging;
 using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Mvc;

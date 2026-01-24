@@ -1,10 +1,9 @@
 ﻿using Application.Core.Config;
 using Application.Core.Interfaces.Shared;
-using Global.Helpers.Functional;
-using Global.Objects.Encryption;
-using Global.Objects.Results;
 using System.Security.Cryptography;
 using System.Text;
+using Application.Core.DTOs.Encryption.Errors;
+using BindSharp;
 
 namespace Application.Core.Services.Shared;
 
@@ -26,11 +25,10 @@ public sealed class ChaChaEncryptionService : IChaChaEncryption
     }
 
     public Result<string, ChaChaEncryptionError> Encrypt(string plaintext) =>
-        ResultExtensions.Try(
+        Result.Try(
             () => Encoding.UTF8.GetBytes(plaintext),
-            "Failed to convert plaintext to bytes"
+            ChaChaEncryptionError (ex) => new GetBytesError(ex.Message, ex)
         )
-        .MapError(error => new ChaChaEncryptError(error) as ChaChaEncryptionError)
         .Bind(EncryptToBytes)
         .Map(Convert.ToBase64String);
 
@@ -39,19 +37,17 @@ public sealed class ChaChaEncryptionService : IChaChaEncryption
             .Map(Convert.ToBase64String);
 
     public Result<byte[], ChaChaEncryptionError> EncryptToBytes(string plaintext) =>
-        ResultExtensions.Try(
+        Result.Try(
             () => Encoding.UTF8.GetBytes(plaintext),
-            "Failed to convert plaintext to bytes"
+            ChaChaEncryptionError (ex) => new GetBytesError(ex.Message, ex)
         )
-        .MapError(error => new ChaChaEncryptError(error) as ChaChaEncryptionError)
         .Bind(EncryptToBytes);
 
     public Result<byte[], ChaChaEncryptionError> EncryptToBytes(byte[] byteContent) =>
-        ResultExtensions.Try(
+        Result.Try(
             () => PerformEncryption(byteContent),
-            "Failed to encrypt data"
-        )
-        .MapError(error => new ChaChaEncryptError(error) as ChaChaEncryptionError);
+            ChaChaEncryptionError (ex) => new ChaChaEncryptError(ex.Message, ex)
+        );
 
     private byte[] PerformEncryption(byte[] byteContent)
     {
@@ -75,30 +71,28 @@ public sealed class ChaChaEncryptionService : IChaChaEncryption
     }
 
     public Result<string, ChaChaEncryptionError> Decrypt(string ciphertext) =>
-        ResultExtensions.Try(
+        Result.Try(
             () => Convert.FromBase64String(ciphertext),
-            "Failed to decode base64 ciphertext"
+            ChaChaEncryptionError (ex) => new GetBytesFromBase64StringError(ex.Message, ex)
         )
-        .MapError(error => new ChaChaDecryptError(error) as ChaChaEncryptionError)
         .Bind(DecryptToBytes)
-        .Bind(bytes => ResultExtensions.Try(
+        .Bind(bytes => Result.Try(
             () => Encoding.UTF8.GetString(bytes),
-            "Failed to convert decrypted bytes to string"
-        ).MapError(error => new ChaChaDecryptError(error) as ChaChaEncryptionError));
+            ChaChaEncryptionError (ex) => new GetBytesError(ex.Message, ex)
+        ));
 
     public Result<string, ChaChaEncryptionError> Decrypt(byte[] ciphertext) =>
         DecryptToBytes(ciphertext)
-            .Bind(bytes => ResultExtensions.Try(
+            .Bind(bytes => Result.Try(
                 () => Encoding.UTF8.GetString(bytes),
-                "Failed to convert decrypted bytes to string"
-            ).MapError(error => new ChaChaDecryptError(error) as ChaChaEncryptionError));
+                ChaChaEncryptionError (ex) => new GetBytesError(ex.Message, ex)
+            ));
 
     public Result<byte[], ChaChaEncryptionError> DecryptToBytes(string ciphertext) =>
-        ResultExtensions.Try(
+        Result.Try(
             () => Convert.FromBase64String(ciphertext),
-            "Failed to decode base64 ciphertext"
+            ChaChaEncryptionError (ex) => new GetBytesFromBase64StringError(ex.Message, ex)
         )
-        .MapError(error => new ChaChaDecryptError(error) as ChaChaEncryptionError)
         .Bind(DecryptToBytes);
 
     public Result<byte[], ChaChaEncryptionError> DecryptToBytes(byte[] ciphertext) =>
@@ -108,36 +102,37 @@ public sealed class ChaChaEncryptionService : IChaChaEncryption
 
     private static Result<byte[], ChaChaEncryptionError> ValidateCiphertextLength(byte[] ciphertext)
     {
-        int minLength = NonceSize + TagSize;
+        const int minLength = NonceSize + TagSize;
         return ciphertext.Length >= minLength
-            ? Result<byte[], ChaChaEncryptionError>.Success(ciphertext)
+            ? ciphertext
             : Result<byte[], ChaChaEncryptionError>.Failure(
                 new ChaChaDecryptError($"Ciphertext too short. Expected at least {minLength} bytes, got {ciphertext.Length}"));
     }
 
     private static Result<(byte[] Nonce, byte[] Tag, byte[] EncryptedData), ChaChaEncryptionError> ExtractEncryptedParts(byte[] ciphertext) =>
-        ResultExtensions.Try(() =>
-        {
-            byte[] nonce = new byte[NonceSize];
-            byte[] tag = new byte[TagSize];
-            byte[] encryptedData = new byte[ciphertext.Length - NonceSize - TagSize];
-
-            Buffer.BlockCopy(ciphertext, 0, nonce, 0, NonceSize);
-            Buffer.BlockCopy(ciphertext, NonceSize, tag, 0, TagSize);
-            Buffer.BlockCopy(ciphertext, NonceSize + TagSize, encryptedData, 0, encryptedData.Length);
-
-            return (nonce, tag, encryptedData);
-        }, "Failed to extract encrypted parts")
-        .MapError(error => new ChaChaDecryptError(error) as ChaChaEncryptionError);
+        Result.Try(() =>
+                {
+                    byte[] nonce = new byte[NonceSize];
+                    byte[] tag = new byte[TagSize];
+                    byte[] encryptedData = new byte[ciphertext.Length - NonceSize - TagSize];
+                    
+                    Buffer.BlockCopy(ciphertext, 0, nonce, 0, NonceSize);
+                    Buffer.BlockCopy(ciphertext, NonceSize, tag, 0, TagSize);
+                    Buffer.BlockCopy(ciphertext, NonceSize + TagSize, encryptedData, 0, encryptedData.Length);
+                    
+                    return (nonce, tag, encryptedData);
+                },
+                ChaChaEncryptionError (ex) => new ExtractEncryptedPartsError(ex.Message, ex));
 
     private Result<byte[], ChaChaEncryptionError> PerformDecryption(
         (byte[] Nonce, byte[] Tag, byte[] EncryptedData) parts) =>
-        ResultExtensions.Try(() =>
-        {
-            byte[] plaintext = new byte[parts.EncryptedData.Length];
-            using ChaCha20Poly1305 chaCha20Poly1305 = new(_masterKey);
-            chaCha20Poly1305.Decrypt(parts.Nonce, parts.EncryptedData, parts.Tag, plaintext);
-            return plaintext;
-        }, "Decryption failed. Data might be corrupted or tampered with")
-        .MapError(error => new ChaChaDecryptError(error) as ChaChaEncryptionError);
+        Result.Try(() =>
+            {
+                byte[] plaintext = new byte[parts.EncryptedData.Length];
+                using ChaCha20Poly1305 chaCha20Poly1305 = new(_masterKey);
+                chaCha20Poly1305.Decrypt(parts.Nonce, parts.EncryptedData, parts.Tag, plaintext);
+                return plaintext;
+                
+            }, 
+            ChaChaEncryptionError (ex) => new PerformDecryption(ex.Message, ex));
 }

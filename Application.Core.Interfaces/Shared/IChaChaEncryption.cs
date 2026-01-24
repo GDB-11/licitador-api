@@ -1,5 +1,5 @@
-﻿using Global.Objects.Encryption;
-using Global.Objects.Results;
+﻿using Application.Core.DTOs.Encryption.Errors;
+using BindSharp;
 
 namespace Application.Core.Interfaces.Shared;
 

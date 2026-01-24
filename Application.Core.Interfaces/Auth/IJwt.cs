@@ -1,11 +1,11 @@
-﻿using Global.Objects.Auth;
-using Global.Objects.Results;
+﻿using Application.Core.DTOs.Auth.Errors;
+using BindSharp;
 using Infrastructure.Core.Models.Account;
 
 namespace Application.Core.Interfaces.Auth;
 
 public interface IJwt
 {
-    Result<(string AccessToken, string RefreshToken, DateTime ExpiresAt), JwtGenerationError> GenerateTokens(User user);
+    Result<(string AccessToken, string RefreshToken, DateTime ExpiresAt), AuthenticationError> GenerateTokens(User user);
     string GenerateRefreshToken();
 }

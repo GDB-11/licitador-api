@@ -1,6 +1,7 @@
-﻿using Application.Core.DTOs.Company;
+﻿using Application.Core.DTOs.Company.Errors;
+using Application.Core.DTOs.Company.Request;
+using Application.Core.DTOs.Company.Response;
 using Application.Core.Interfaces.Company;
-using Global.Objects.Company;
 using Licitador.WebAPI.Logging;
 using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Authorization;
@@ -14,11 +15,11 @@ namespace Licitador.WebAPI.Controllers;
 public sealed class CompanyController : FunctionalController
 {
     private readonly ICompany _companyService;
-    private readonly IErrorHttpMapper<CompanyError> _errorMapper;
+    private readonly IErrorHttpMapper<CompanyDomainError> _errorMapper;
 
     public CompanyController(
         ICompany companyService,
-        IErrorHttpMapper<CompanyError> errorMapper,
+        IErrorHttpMapper<CompanyDomainError> errorMapper,
         IResultLogger logger)
         : base(logger)
     {

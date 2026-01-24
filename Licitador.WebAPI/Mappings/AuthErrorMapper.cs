@@ -1,14 +1,26 @@
-﻿using Global.Objects.Auth;
+﻿using Application.Core.DTOs.Auth.Errors;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Licitador.WebAPI.Mappings;
 
-public sealed class AuthErrorMapper : IErrorHttpMapper<AuthError>
+public sealed class AuthErrorMapper : IErrorHttpMapper<AuthenticationError>
 {
-    public IActionResult MapToHttp(AuthError error) =>
+    public IActionResult MapToHttp(AuthenticationError error) =>
         error switch
         {
-            InvalidCredentialsError => new UnauthorizedObjectResult(new
+            UserNotFoundError => new UnauthorizedObjectResult(new
+            {
+                error = "Unauthorized",
+                message = error.Message
+            }),
+
+            RefreshTokenNotFoundError => new UnauthorizedObjectResult(new
+            {
+                error = "Unauthorized",
+                message = error.Message
+            }),
+
+            InvalidUserTokenError => new UnauthorizedObjectResult(new
             {
                 error = "Unauthorized",
                 message = error.Message
@@ -25,6 +37,56 @@ public sealed class AuthErrorMapper : IErrorHttpMapper<AuthError>
                 error = "InternalServerError",
                 message = jwt.Message,
                 details = jwt.Details
+            })
+            {
+                StatusCode = StatusCodes.Status500InternalServerError
+            },
+
+            JwtStorageError storage => new ObjectResult(new
+            {
+                error = "InternalServerError",
+                message = storage.Message,
+                details = storage.Details
+            })
+            {
+                StatusCode = StatusCodes.Status500InternalServerError
+            },
+
+            StoreRefreshTokenError store => new ObjectResult(new
+            {
+                error = "InternalServerError",
+                message = store.Message,
+                details = store.Details
+            })
+            {
+                StatusCode = StatusCodes.Status500InternalServerError
+            },
+
+            GetByEmailAsyncError email => new ObjectResult(new
+            {
+                error = "InternalServerError",
+                message = email.Message,
+                details = email.Details
+            })
+            {
+                StatusCode = StatusCodes.Status500InternalServerError
+            },
+
+            GetByRefreshTokenAsyncError refresh => new ObjectResult(new
+            {
+                error = "InternalServerError",
+                message = refresh.Message,
+                details = refresh.Details
+            })
+            {
+                StatusCode = StatusCodes.Status500InternalServerError
+            },
+
+            ChaChaDecryptError decrypt => new ObjectResult(new
+            {
+                error = "InternalServerError",
+                message = decrypt.Message,
+                details = decrypt.Details
             })
             {
                 StatusCode = StatusCodes.Status500InternalServerError

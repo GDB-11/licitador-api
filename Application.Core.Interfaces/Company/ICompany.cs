@@ -1,13 +1,13 @@
-﻿using Application.Core.DTOs.Company;
-using Global.Objects.Company;
-using Global.Objects.Functional;
-using Global.Objects.Results;
+﻿using Application.Core.DTOs.Company.Errors;
+using Application.Core.DTOs.Company.Request;
+using Application.Core.DTOs.Company.Response;
+using BindSharp;
 
 namespace Application.Core.Interfaces.Company;
 
 public interface ICompany
 {
-    Task<Result<UserCompanyResponse, CompanyError>> GetUserCompanyAsync(Guid userId);
-    Task<Result<UserCompanyDetailsResponse, CompanyError>> GetUserCompanyDetailsAsync(Guid userId, Guid companyId);
-    Task<Result<Unit, CompanyError>> UpdateCompanyDetailsAsync(Guid userId, UpdateCompanyDetailsRequest request);
+    Task<Result<UserCompanyResponse, CompanyDomainError>> GetUserCompanyAsync(Guid userId);
+    Task<Result<UserCompanyDetailsResponse, CompanyDomainError>> GetUserCompanyDetailsAsync(Guid userId, Guid companyId);
+    Task<Result<Unit, CompanyDomainError>> UpdateCompanyDetailsAsync(Guid userId, UpdateCompanyDetailsRequest request);
 }

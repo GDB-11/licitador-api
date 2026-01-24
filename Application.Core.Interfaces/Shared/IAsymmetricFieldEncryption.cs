@@ -1,6 +1,6 @@
-﻿using Application.Core.DTOs.Encryption;
-using Global.Objects.Encryption;
-using Global.Objects.Results;
+﻿using Application.Core.DTOs.Encryption.Errors;
+using Application.Core.DTOs.Encryption.Response;
+using BindSharp;
 
 namespace Application.Core.Interfaces.Shared;
 

@@ -1,6 +1,6 @@
-﻿using Application.Core.DTOs.Document;
-using Global.Objects.Document;
-using Global.Objects.Results;
+﻿using Application.Core.DTOs.Document.Errors;
+using Application.Core.DTOs.Document.Request;
+using BindSharp;
 
 namespace Application.Core.Interfaces.Document;
 

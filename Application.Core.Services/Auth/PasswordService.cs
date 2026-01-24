@@ -1,8 +1,7 @@
-﻿using Application.Core.Interfaces.Auth;
+﻿using Application.Core.DTOs.Encryption.Errors;
+using Application.Core.Interfaces.Auth;
 using Application.Core.Interfaces.Shared;
-using Global.Helpers.Functional;
-using Global.Objects.Encryption;
-using Global.Objects.Results;
+using BindSharp;
 
 namespace Application.Core.Services.Auth;
 

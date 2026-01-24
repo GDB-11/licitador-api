@@ -1,9 +1,9 @@
-﻿using Global.Objects.Results;
-using Licitador.WebAPI.Extensions;
-using Licitador.WebAPI.Logging;
+﻿using Licitador.WebAPI.Logging;
 using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using BindSharp;
+using Licitador.WebAPI.Extensions;
 
 namespace Licitador.WebAPI.Controllers;
 

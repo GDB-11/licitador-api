@@ -1,5 +1,5 @@
-﻿using Global.Helpers.Functional;
-using Global.Objects.Results;
+﻿using BindSharp;
+using BindSharp.Extensions;
 
 namespace Licitador.WebAPI.Logging;
 

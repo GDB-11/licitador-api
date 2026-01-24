@@ -1,5 +1,4 @@
-﻿using Global.Helpers.Functional;
-using Global.Objects.Results;
+﻿using BindSharp;
 using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Mvc;
 

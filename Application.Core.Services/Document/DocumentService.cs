@@ -1,13 +1,11 @@
 ﻿using System.Globalization;
-using Application.Core.DTOs.Document;
+using Application.Core.DTOs.Document.Errors;
+using Application.Core.DTOs.Document.Request;
+using Application.Core.DTOs.Document.Templates;
 using Application.Core.Interfaces.Document;
-using DocumentFormat.OpenXml;
-using DocumentFormat.OpenXml.Packaging;
-using DocumentFormat.OpenXml.Wordprocessing;
-using Global.Helpers.Functional;
-using Global.Objects.Document;
-using Global.Objects.Results;
+using BindSharp;
 using Infrastructure.Core.Interfaces.Account;
+using Infrastructure.Core.Interfaces.Organization;
 using Infrastructure.Core.Models.Company;
 
 namespace Application.Core.Services.Document;
@@ -16,13 +14,16 @@ public class DocumentService : IDocument
 {
     private readonly WordTemplateService _templateService;
     private readonly IUserRepository _userRepository;
+    private readonly ICompanyRepository _companyRepository;
     
     public DocumentService(
         WordTemplateService templateService,
-        IUserRepository userRepository)
+        IUserRepository userRepository,
+        ICompanyRepository companyRepository)
     {
         _templateService = templateService;
         _userRepository = userRepository;
+        _companyRepository = companyRepository;
     }
     
     public async Task<Result<byte[], DocumentError>> GenerateAnnexesAsync(
@@ -89,7 +90,7 @@ public class DocumentService : IDocument
         try
         {
             var company = await _userRepository.GetUserFirstCompanyAsync(userId);
-            var companyDetails = await _userRepository.GetCompanyDetailsAsync(company.Value.CompanyId);
+            var companyDetails = await _companyRepository.GetCompanyDetailsAsync(company.Value.CompanyId);
             
             if (companyDetails.Value is null)
             {

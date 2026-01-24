@@ -1,15 +1,14 @@
 ﻿using Application.Core.Config;
 using Application.Core.Interfaces.Auth;
 using Application.Core.Interfaces.Shared;
-using Global.Helpers.Functional;
-using Global.Objects.Auth;
-using Global.Objects.Results;
 using Infrastructure.Core.Models.Account;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using Application.Core.DTOs.Auth.Errors;
+using BindSharp;
 
 namespace Application.Core.Services.Auth;
 
@@ -24,12 +23,11 @@ public sealed class JwtService : IJwt
         _timeProvider = timeProvider;
     }
 
-    public Result<(string AccessToken, string RefreshToken, DateTime ExpiresAt), JwtGenerationError> GenerateTokens(User user) =>
-        ResultExtensions.Try(
+    public Result<(string AccessToken, string RefreshToken, DateTime ExpiresAt), AuthenticationError> GenerateTokens(User user) =>
+        Result.Try(
             operation: () => CreateTokens(user),
-            errorMessage: "Failed to generate JWT tokens"
-        )
-        .MapError(error => new JwtGenerationError(error, null));
+            AuthenticationError (ex) => new JwtGenerationError(ex.Message, ex)
+        );
 
     public string GenerateRefreshToken()
     {

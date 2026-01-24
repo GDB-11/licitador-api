@@ -1,6 +1,6 @@
-﻿using Application.Core.DTOs.Document;
+﻿using Application.Core.DTOs.Document.Errors;
+using Application.Core.DTOs.Document.Request;
 using Application.Core.Interfaces.Document;
-using Global.Objects.Document;
 using Licitador.WebAPI.Logging;
 using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Authorization;

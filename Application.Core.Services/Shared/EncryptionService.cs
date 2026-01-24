@@ -1,7 +1,6 @@
-﻿using Application.Core.Interfaces.Shared;
-using Global.Helpers.Functional;
-using Global.Objects.Encryption;
-using Global.Objects.Results;
+﻿using Application.Core.DTOs.Encryption.Errors;
+using Application.Core.Interfaces.Shared;
+using BindSharp;
 
 namespace Application.Core.Services.Shared;
 
@@ -24,13 +23,11 @@ public sealed class EncryptionService : IEncryption
 
     private static Result<string, ChaChaEncryptionError> ValidatePlaintext(string plaintext) =>
         !string.IsNullOrEmpty(plaintext)
-            ? Result<string, ChaChaEncryptionError>.Success(plaintext)
-            : Result<string, ChaChaEncryptionError>.Failure(
-                new ChaChaEncryptError("Plaintext cannot be null or empty"));
+            ? plaintext
+            : new ChaChaEncryptError("Plain text cannot be null or empty");
 
     private static Result<string, ChaChaEncryptionError> ValidateCiphertext(string ciphertext) =>
         !string.IsNullOrEmpty(ciphertext)
-            ? Result<string, ChaChaEncryptionError>.Success(ciphertext)
-            : Result<string, ChaChaEncryptionError>.Failure(
-                new ChaChaDecryptError("Ciphertext cannot be null or empty"));
+            ? ciphertext
+            : new ChaChaDecryptError("Cipher text cannot be null or empty");
 }

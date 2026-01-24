@@ -1,10 +1,9 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 using Application.Core.Config;
+using Application.Core.DTOs.Encryption.Errors;
 using Application.Core.Interfaces.Shared;
-using Global.Helpers.Functional;
-using Global.Objects.Encryption;
-using Global.Objects.Results;
+using BindSharp;
 
 namespace Application.Core.Services.Shared;
 
@@ -36,37 +35,35 @@ public sealed class DeterministicAesEncryptionService : IDeterministicEncryption
     }
 
     public Result<string, DeterministicEncryptionError> Encrypt(string plaintext) =>
-        ValidatePlaintext(plaintext)
-            .Bind(text => ResultExtensions.Try(
+        ValidatePlainText(plaintext)
+            .Bind(text => Result.Try(
                 () => Encoding.UTF8.GetBytes(text),
-                "Failed to convert plaintext to bytes"
-            ).MapError(error => new DeterministicEncryptError(error) as DeterministicEncryptionError))
+                DeterministicEncryptionError (ex) => new GetBytesDeterministicError(ex.Message, ex)
+            ))
             .Bind(EncryptBytes)
             .Map(Convert.ToBase64String);
 
     public Result<string, DeterministicEncryptionError> Decrypt(string ciphertext) =>
-        ValidateCiphertext(ciphertext)
-            .Bind(text => ResultExtensions.Try(
+        ValidateCipherText(ciphertext)
+            .Bind(text => Result.Try(
                 () => Convert.FromBase64String(text),
-                "Failed to decode base64 ciphertext"
-            ).MapError(error => new DeterministicDecryptError(error) as DeterministicEncryptionError))
+                DeterministicEncryptionError (ex) => new GetBytesFromBase64StringDeterministicError(ex.Message, ex)
+            )
             .Bind(DecryptBytes)
-            .Bind(bytes => ResultExtensions.Try(
+            .Bind(bytes => Result.Try(
                 () => Encoding.UTF8.GetString(bytes),
-                "Failed to convert decrypted bytes to string"
-            ).MapError(error => new DeterministicDecryptError(error) as DeterministicEncryptionError));
+                DeterministicEncryptionError (ex) => new GetBytesDeterministicError(ex.Message, ex)
+            )));
 
-    private static Result<string, DeterministicEncryptionError> ValidatePlaintext(string plaintext) =>
+    private static Result<string, DeterministicEncryptionError> ValidatePlainText(string plaintext) =>
         !string.IsNullOrEmpty(plaintext)
-            ? Result<string, DeterministicEncryptionError>.Success(plaintext)
-            : Result<string, DeterministicEncryptionError>.Failure(
-                new DeterministicEncryptError("The plaintext cannot be null or empty"));
+            ? plaintext
+            : new EmptyPlainTextDeterministicError();
 
-    private static Result<string, DeterministicEncryptionError> ValidateCiphertext(string ciphertext) =>
+    private static Result<string, DeterministicEncryptionError> ValidateCipherText(string ciphertext) =>
         !string.IsNullOrEmpty(ciphertext)
-            ? Result<string, DeterministicEncryptionError>.Success(ciphertext)
-            : Result<string, DeterministicEncryptionError>.Failure(
-                new DeterministicDecryptError("The ciphertext cannot be null or empty"));
+            ? ciphertext
+            : new EmptyCypherTextDeterministicError();
 
     private Result<byte[], DeterministicEncryptionError> EncryptBytes(byte[] plainBytes) =>
         ValidatePlainBytes(plainBytes)
@@ -84,17 +81,15 @@ public sealed class DeterministicAesEncryptionService : IDeterministicEncryption
 
     private static Result<byte[], DeterministicEncryptionError> ValidatePlainBytes(byte[] plainBytes) =>
         plainBytes is { Length: > 0 }
-            ? Result<byte[], DeterministicEncryptionError>.Success(plainBytes)
-            : Result<byte[], DeterministicEncryptionError>.Failure(
-                new DeterministicEncryptError("Plain bytes cannot be null or empty"));
+            ? plainBytes
+            : new EmptyPlainBytesDeterministicError();
 
     private static Result<byte[], DeterministicEncryptionError> ValidateEncryptedBytesLength(byte[] encryptedBytes)
     {
-        int minLength = BlockSize + HmacSize;
-        return encryptedBytes is { Length: > 0 } && encryptedBytes.Length > minLength
-            ? Result<byte[], DeterministicEncryptionError>.Success(encryptedBytes)
-            : Result<byte[], DeterministicEncryptionError>.Failure(
-                new DeterministicDecryptError($"Encrypted data too short. Expected more than {minLength} bytes"));
+        const int minLength = BlockSize + HmacSize;
+        return encryptedBytes is { Length: > 0 and > minLength }
+            ? encryptedBytes
+            : new InsufficientEncryptedBytesLength($"Encrypted data too short. Expected more than {minLength} bytes");
     }
 
     private byte[] GenerateDeterministicIv(byte[] data)
@@ -108,18 +103,18 @@ public sealed class DeterministicAesEncryptionService : IDeterministicEncryption
     }
 
     private Result<byte[], DeterministicEncryptionError> PerformAesEncryption(byte[] plainBytes, byte[] iv) =>
-        ResultExtensions.Try(() =>
-        {
-            using Aes aes = Aes.Create();
-            aes.Key = _encryptionKey;
-            aes.IV = iv;
-            aes.Mode = CipherMode.CBC;
-            aes.Padding = PaddingMode.PKCS7;
+        Result.Try(() =>
+                {
+                    using Aes aes = Aes.Create();
+                    aes.Key = _encryptionKey;
+                    aes.IV = iv;
+                    aes.Mode = CipherMode.CBC;
+                    aes.Padding = PaddingMode.PKCS7;
 
-            using ICryptoTransform encryptor = aes.CreateEncryptor();
-            return encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
-        }, "Failed to perform AES encryption")
-        .MapError(error => new DeterministicEncryptError(error) as DeterministicEncryptionError);
+                    using ICryptoTransform encryptor = aes.CreateEncryptor();
+                    return encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
+                },
+                DeterministicEncryptionError (ex) => new AesEncryptionError(ex.Message, ex));
 
     private (byte[] iv, byte[] authTag, byte[] ciphertext) AddAuthenticationTag(byte[] iv, byte[] ciphertext)
     {
@@ -138,20 +133,21 @@ public sealed class DeterministicAesEncryptionService : IDeterministicEncryption
 
     private static Result<(byte[] iv, byte[] authTag, byte[] ciphertext), DeterministicEncryptionError>
         ExtractEncryptedParts(byte[] encryptedBytes) =>
-        ResultExtensions.Try(() =>
-        {
-            byte[] iv = new byte[BlockSize];
-            byte[] authTag = new byte[HmacSize];
-            int ciphertextLength = encryptedBytes.Length - BlockSize - HmacSize;
-            byte[] ciphertext = new byte[ciphertextLength];
+        Result.Try(() =>
+            {
+                byte[] iv = new byte[BlockSize];
+                byte[] authTag = new byte[HmacSize];
+                int ciphertextLength = encryptedBytes.Length - BlockSize - HmacSize;
+                byte[] ciphertext = new byte[ciphertextLength];
 
-            Buffer.BlockCopy(encryptedBytes, 0, iv, 0, BlockSize);
-            Buffer.BlockCopy(encryptedBytes, BlockSize, authTag, 0, HmacSize);
-            Buffer.BlockCopy(encryptedBytes, BlockSize + HmacSize, ciphertext, 0, ciphertextLength);
+                Buffer.BlockCopy(encryptedBytes, 0, iv, 0, BlockSize);
+                Buffer.BlockCopy(encryptedBytes, BlockSize, authTag, 0, HmacSize);
+                Buffer.BlockCopy(encryptedBytes, BlockSize + HmacSize, ciphertext, 0, ciphertextLength);
 
-            return (iv, authTag, ciphertext);
-        }, "Failed to extract encrypted parts")
-        .MapError(error => new DeterministicDecryptError(error) as DeterministicEncryptionError);
+                return (iv, authTag, ciphertext);
+                
+            },
+            DeterministicEncryptionError (ex) => new AesEncryptedPartsExtractionError(ex.Message, ex));
 
     private Result<(byte[] iv, byte[] ciphertext), DeterministicEncryptionError>
         VerifyAuthenticationTag((byte[] iv, byte[] authTag, byte[] ciphertext) parts)
@@ -159,24 +155,24 @@ public sealed class DeterministicAesEncryptionService : IDeterministicEncryption
         byte[] computedAuthTag = ComputeHmac(parts.iv, parts.ciphertext);
 
         return CryptographicOperations.FixedTimeEquals(parts.authTag, computedAuthTag)
-            ? Result<(byte[], byte[]), DeterministicEncryptionError>.Success((parts.iv, parts.ciphertext))
-            : Result<(byte[], byte[]), DeterministicEncryptionError>.Failure(
-                new AuthenticationFailedError("Authentication tag validation failed. Data may be corrupted or tampered with"));
+            ? (parts.iv, parts.ciphertext)
+            : new InvalidAuthenticationTag();
     }
 
     private Result<byte[], DeterministicEncryptionError> PerformAesDecryption(byte[] iv, byte[] ciphertext) =>
-        ResultExtensions.Try(() =>
-        {
-            using Aes aes = Aes.Create();
-            aes.Key = _encryptionKey;
-            aes.IV = iv;
-            aes.Mode = CipherMode.CBC;
-            aes.Padding = PaddingMode.PKCS7;
+        Result.Try(() =>
+            {
+                using Aes aes = Aes.Create();
+                aes.Key = _encryptionKey;
+                aes.IV = iv;
+                aes.Mode = CipherMode.CBC;
+                aes.Padding = PaddingMode.PKCS7;
 
-            using ICryptoTransform decryptor = aes.CreateDecryptor();
-            return decryptor.TransformFinalBlock(ciphertext, 0, ciphertext.Length);
-        }, "Decryption failed. Data might be corrupted or tampered with")
-        .MapError(error => new DeterministicDecryptError(error) as DeterministicEncryptionError);
+                using ICryptoTransform decryptor = aes.CreateDecryptor();
+                return decryptor.TransformFinalBlock(ciphertext, 0, ciphertext.Length);
+                
+            },
+            DeterministicEncryptionError (ex) => new AesDecryptionError("Decryption failed. Data might be corrupted or tampered with", ex.Message, ex));
 
     private byte[] ComputeHmac(byte[] iv, byte[] ciphertext)
     {
@@ -199,38 +195,33 @@ public sealed class DeterministicAesEncryptionService : IDeterministicEncryption
         ValidateKeyStrings(DeterministicEncryptionConfig config)
     {
         if (string.IsNullOrEmpty(config.MasterKey))
-            return Result<DeterministicEncryptionConfig, DeterministicEncryptionError>.Failure(
-                new InvalidKeyConfigurationError("Encryption key cannot be null or empty"));
+            return new NullOrEmptyEncryptionKeyError();
 
         if (string.IsNullOrEmpty(config.IvGenerationKey))
-            return Result<DeterministicEncryptionConfig, DeterministicEncryptionError>.Failure(
-                new InvalidKeyConfigurationError("IV generation key cannot be null or empty"));
+            return new NullOrEmptyIvGenerationKeyError();
 
-        return Result<DeterministicEncryptionConfig, DeterministicEncryptionError>.Success(config);
+        return config;
     }
 
     private static Result<(byte[] encryptionKey, byte[] ivGenerationKey), DeterministicEncryptionError>
         DecodeKeys(DeterministicEncryptionConfig config) =>
-        ResultExtensions.Try(() =>
-        {
-            byte[] encryptionKey = Convert.FromBase64String(config.MasterKey);
-            byte[] ivGenerationKey = Convert.FromBase64String(config.IvGenerationKey);
-            return (encryptionKey, ivGenerationKey);
-        }, "Keys must be valid Base64 strings")
-        .MapError(error => new InvalidKeyConfigurationError(error) as DeterministicEncryptionError);
+        Result.Try(() =>
+            {
+                byte[] encryptionKey = Convert.FromBase64String(config.MasterKey);
+                byte[] ivGenerationKey = Convert.FromBase64String(config.IvGenerationKey);
+                return (encryptionKey, ivGenerationKey);
+            },
+            DeterministicEncryptionError (ex) => new InvalidAesKeysError());
 
     private static Result<(byte[] encryptionKey, byte[] ivGenerationKey), DeterministicEncryptionError>
         ValidateKeyLengths((byte[] encryptionKey, byte[] ivGenerationKey) keys)
     {
         if (keys.encryptionKey.Length != 32)
-            return Result<(byte[], byte[]), DeterministicEncryptionError>.Failure(
-                new InvalidKeyConfigurationError($"Encryption key must be 32 bytes (256 bits), got {keys.encryptionKey.Length} bytes"));
+            return new InvalidEncryptionKeyConfigurationError($"Encryption key must be 32 bytes (256 bits), got {keys.encryptionKey.Length} bytes");
 
-        if (keys.ivGenerationKey.Length != 32)
-            return Result<(byte[], byte[]), DeterministicEncryptionError>.Failure(
-                new InvalidKeyConfigurationError($"IV generation key must be 32 bytes (256 bits), got {keys.ivGenerationKey.Length} bytes"));
-
-        return Result<(byte[], byte[]), DeterministicEncryptionError>.Success(keys);
+        return keys.ivGenerationKey.Length != 32 
+            ? new InvalidIvGenerationKeyConfigurationError($"IV generation key must be 32 bytes (256 bits), got {keys.ivGenerationKey.Length} bytes")
+            : keys;
     }
 
     private static (byte[] encryptionKey, byte[] ivGenerationKey)

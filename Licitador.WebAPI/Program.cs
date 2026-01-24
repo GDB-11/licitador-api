@@ -7,10 +7,6 @@ using Application.Core.Services.Auth;
 using Application.Core.Services.Company;
 using Application.Core.Services.Document;
 using Application.Core.Services.Shared;
-using Global.Objects.Auth;
-using Global.Objects.Company;
-using Global.Objects.Document;
-using Global.Objects.Encryption;
 using Infrastructure.Core.Interfaces.Account;
 using Infrastructure.Core.Interfaces.Security;
 using Infrastructure.Core.Services.Account;
@@ -20,11 +16,17 @@ using Licitador.WebAPI.Mappings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
 using Npgsql;
 using Scalar.AspNetCore;
 using System.Data;
 using System.Text;
+using Application.Core.DTOs.Auth.Errors;
+using Application.Core.DTOs.Company.Errors;
+using Application.Core.DTOs.Document.Errors;
+using Application.Core.DTOs.Encryption.Errors;
+using Infrastructure.Core.Interfaces.Organization;
+using Infrastructure.Core.Services.Organization;
+using Microsoft.OpenApi;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -60,17 +62,18 @@ builder.Services.AddTransient<IDbConnection>(sp =>
 
 #region Register repositories
 builder.Services.AddScoped<IKeyRepository, KeyRepository>();
+builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 #endregion
 
 #region Register loggers
-builder.Services.AddScoped<IResultLogger, ConsoleResultLogger>();
+builder.Services.AddSingleton<IResultLogger, ConsoleResultLogger>();
 #endregion
 
 #region Register HttpErrorMappers (One per controller)
 builder.Services.AddScoped<IErrorHttpMapper<ChaChaEncryptionError>, ChaChaEncryptionErrorMapper>();
-builder.Services.AddScoped<IErrorHttpMapper<AuthError>, AuthErrorMapper>();
-builder.Services.AddScoped<IErrorHttpMapper<CompanyError>, CompanyErrorMapper>();
+builder.Services.AddScoped<IErrorHttpMapper<AuthenticationError>, AuthErrorMapper>();
+builder.Services.AddScoped<IErrorHttpMapper<CompanyDomainError>, CompanyErrorMapper>();
 builder.Services.AddScoped<IErrorHttpMapper<DocumentError>, DocumentErrorMapper>();
 #endregion
 
@@ -99,30 +102,15 @@ builder.Services.AddOpenApi(options =>
         document.Components ??= new OpenApiComponents();
 
         // Add the Bearer security scheme
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
         document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
         {
             Type = SecuritySchemeType.Http,
             Scheme = "bearer",
             BearerFormat = "JWT",
-            Description = "Enter 'Bearer' followed by your JWT token, e.g., 'Bearer eyJ...'"
+            Description = "Enter 'Bearer' followed by your JWT token"
         };
-
-        // Add global security requirement (optional, applies to all endpoints)
-        document.SecurityRequirements.Add(new OpenApiSecurityRequirement
-        {
-            {
-                new OpenApiSecurityScheme
-                {
-                    Reference = new OpenApiReference
-                    {
-                        Type = ReferenceType.SecurityScheme,
-                        Id = "Bearer"
-                    }
-                },
-                Array.Empty<string>()
-            }
-        });
-
+        
         return Task.CompletedTask;
     });
 });
