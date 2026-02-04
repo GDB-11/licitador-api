@@ -4,7 +4,7 @@ using BindSharp.Extensions;
 namespace Licitador.WebAPI.Logging;
 
 /// <summary>
-/// Abstraction for logging operations (to be replaced with actual logging library)
+/// Abstraction for logging operations
 /// </summary>
 public interface IResultLogger
 {

@@ -8,6 +8,14 @@ using BindSharp.Extensions;
 using Infrastructure.Core.Interfaces.Account;
 using Infrastructure.Core.Interfaces.Organization;
 using Infrastructure.Core.Models.Company;
+using GetActiveBankAccountIdAsyncError = Application.Core.DTOs.Company.Errors.GetActiveBankAccountIdAsyncError;
+using GetActiveLegalRepresentativeIdAsyncError = Application.Core.DTOs.Company.Errors.GetActiveLegalRepresentativeIdAsyncError;
+using GetCompanyDetailsAsyncError = Application.Core.DTOs.Company.Errors.GetCompanyDetailsAsyncError;
+using InsertBankAccountAsyncError = Application.Core.DTOs.Company.Errors.InsertBankAccountAsyncError;
+using InsertLegalRepresentativeAsyncError = Application.Core.DTOs.Company.Errors.InsertLegalRepresentativeAsyncError;
+using UpdateBankAccountAsyncError = Application.Core.DTOs.Company.Errors.UpdateBankAccountAsyncError;
+using UpdateCompanyAsyncError = Application.Core.DTOs.Company.Errors.UpdateCompanyAsyncError;
+using UpdateLegalRepresentativeAsyncError = Application.Core.DTOs.Company.Errors.UpdateLegalRepresentativeAsyncError;
 
 namespace Application.Core.Services.Company;
 
@@ -39,10 +47,11 @@ public sealed class CompanyService : ICompany
             .EnsureAsync(hasOwnership => hasOwnership, new UserCompanyOwnershipError())
             .BindAsync(_ => _companyRepository.GetCompanyDetailsAsync(companyId)
                 .MapErrorAsync(CompanyDomainError (error) => new GetCompanyDetailsAsyncError(error.Message, error.Details, error.Exception))
+                .EnsureNotNullAsync(new CompanyNotFoundError())
                 .BindAsync(MapCompanyDetailsToResponse));
 
     public Task<Result<Unit, CompanyDomainError>> UpdateCompanyDetailsAsync(Guid userId, UpdateCompanyDetailsRequest request) =>
-        Task.FromResult(MapRequestToInfrastructureModels(request))
+        MapRequestToInfrastructureModels(request)
             .BindAsync(mapped => _userRepository.ValidateUserCompanyOwnershipAsync(userId, request.CompanyId)
                 .MapErrorAsync(CompanyDomainError (error) => new ValidateUserCompanyOwnershipAsyncError(error.Message, error.Details, error.Exception))
                 .EnsureAsync(hasOwnership => hasOwnership, new UserCompanyOwnershipError())
@@ -56,20 +65,29 @@ public sealed class CompanyService : ICompany
                         request.FechaConstitucion,
                         request.IsMype)
                     .MapErrorAsync(CompanyDomainError (error) => new UpdateCompanyAsyncError(error.Message, error.Details, error.Exception))
-                    .BindAsync(_ => mapped.LegalRepresentative is not null
-                        ? UpdateOrInsertLegalRepresentativeAsync(request.CompanyId, mapped.LegalRepresentative)
-                        : Task.FromResult(Result<Unit, CompanyDomainError>.Success(Unit.Value)))
-                    .BindAsync(_ => mapped.BankAccount is not null
-                        ? UpdateOrInsertBankAccountAsync(request.CompanyId, mapped.BankAccount)
-                        : Task.FromResult(Result<Unit, CompanyDomainError>.Success(Unit.Value)))));
+                    .BindAsync(async _ => mapped.LegalRepresentative is not null
+                        ? await UpdateOrInsertLegalRepresentativeAsync(request.CompanyId, mapped.LegalRepresentative)
+                        : Unit.Value)
+                    .BindAsync(async _ => mapped.BankAccount is not null
+                        ? await UpdateOrInsertBankAccountAsync(request.CompanyId, mapped.BankAccount)
+                        : Unit.Value)));
 
-    private static Task<Result<UserCompanyDetailsResponse, CompanyDomainError>> MapCompanyDetailsToResponse(CompanyDetails? details)
+    public async Task<Result<CompanyStatisticsResponse, CompanyDomainError>> GetCompanyStatisticsAsync(Guid userId, Guid companyId) =>
+        await _userRepository.ValidateUserCompanyOwnershipAsync(userId, companyId)
+            .MapErrorAsync(CompanyDomainError (error) => new ValidateUserCompanyOwnershipAsyncError(error.Message, error.Details, error.Exception))
+            .EnsureAsync(hasOwnership => hasOwnership, new UserCompanyOwnershipError())
+            .BindAsync(_ => _companyRepository.GetCompanyDetailsAsync(companyId)
+                .MapErrorAsync(CompanyDomainError (error) => new GetCompanyDetailsAsyncError(error.Message, error.Details, error.Exception))
+                .EnsureNotNullAsync(new CompanyNotFoundError())
+                .MapAsync(companyDetails => new CompanyStatisticsResponse
+                {
+                    GeneratedDocuments = 0, // You'll need to populate this
+                    CompleteProfilePercentage = CalculateProfileCompletion(companyDetails.Company, companyDetails.LegalRepresentative, companyDetails.BankAccount),
+                    ConsortiaCompanies = GetConsortiaCompanies(companyDetails.Company.CompanyId)
+                }));
+
+    private static Task<Result<UserCompanyDetailsResponse, CompanyDomainError>> MapCompanyDetailsToResponse(CompanyDetails details)
     {
-        if (details?.Company is null)
-        {
-            return Task.FromResult(Result<UserCompanyDetailsResponse, CompanyDomainError>.Failure(new CompanyNotFoundError()));
-        }
-
         var response = new UserCompanyDetailsResponse
         {
             CompanyId = details.Company.CompanyId,
@@ -173,4 +191,38 @@ public sealed class CompanyService : ICompany
                     bankAccountUpdate.CciCode)
                     .MapErrorAsync(CompanyDomainError (error) => new InsertBankAccountAsyncError(error.Message, error.Details, error.Exception))
                     .MapAsync(_ => Unit.Value));
+
+    private static byte CalculateProfileCompletion(Infrastructure.Core.Models.Company.Company? company, LegalRepresentative? legalRepresentative, BankAccount? bankAccount)
+    {
+        object?[] fields =
+        [
+            company?.Ruc,
+            company?.RazonSocial,
+            company?.DomicilioLegal,
+            company?.Telefono,
+            company?.Email,
+            company?.FechaConstitucion,
+            legalRepresentative?.DocumentNumber,
+            legalRepresentative?.FullName,
+            legalRepresentative?.NationalIdImage,
+            bankAccount?.CciCode,
+            bankAccount?.AccountNumber,
+            bankAccount?.BankName
+        ];
+
+        int completedCount = fields.Count(IsFieldComplete);
+        return (byte)Math.Round((double)completedCount / fields.Length * 100);
+    }
+
+    private static bool IsFieldComplete(object? field) => field switch
+    {
+        string str => !string.IsNullOrWhiteSpace(str),
+        null => false,
+        _ => true
+    };
+
+    private int GetConsortiaCompanies(Guid companyId)
+    {
+        return 0;
+    }
 }

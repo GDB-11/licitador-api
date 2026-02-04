@@ -80,4 +80,20 @@ public sealed class CompanyController : FunctionalController
             operationName: nameof(UpdateCompanyDetails),
             successMapper: _ => NoContent()
         );
+    
+    /// <summary>
+    /// Gets get company general statistics
+    /// </summary>
+    /// <returns>Company information including CompanyId and RazonSocial</returns>
+    [HttpGet("statistics/{companyId:guid}")]
+    [ProducesResponseType(typeof(CompanyStatisticsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public Task<IActionResult> GetCompanyStatistics([FromRoute] Guid companyId) =>
+        ExecuteAuthenticatedAsync(
+            operation: userId => _companyService.GetCompanyStatisticsAsync(userId, companyId),
+            errorMapper: _errorMapper,
+            operationName: nameof(GetCompanyStatistics)
+        );
 }

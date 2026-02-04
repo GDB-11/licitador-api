@@ -10,4 +10,5 @@ public interface ICompany
     Task<Result<UserCompanyResponse, CompanyDomainError>> GetUserCompanyAsync(Guid userId);
     Task<Result<UserCompanyDetailsResponse, CompanyDomainError>> GetUserCompanyDetailsAsync(Guid userId, Guid companyId);
     Task<Result<Unit, CompanyDomainError>> UpdateCompanyDetailsAsync(Guid userId, UpdateCompanyDetailsRequest request);
+    Task<Result<CompanyStatisticsResponse, CompanyDomainError>> GetCompanyStatisticsAsync(Guid userId, Guid companyId);
 }

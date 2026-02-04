@@ -27,7 +27,7 @@ public sealed class DocumentController : FunctionalController
     }
 
     /// <summary>
-    /// Generates annexes document (DOCX) based on licitacion information and company data
+    /// Generates annex document (DOCX) based on licitacion information and company data
     /// </summary>
     /// <param name="request">Licitacion and notification information</param>
     /// <returns>DOCX file containing Anexo 1, 2, and 3</returns>

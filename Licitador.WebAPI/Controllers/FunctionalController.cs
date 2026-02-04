@@ -62,7 +62,7 @@ public abstract class FunctionalController : ControllerBase
         string operationName,
         Func<T, IActionResult>? successMapper = null)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        string? userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out Guid userId))
         {

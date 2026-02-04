@@ -10,13 +10,11 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
         {
             CompanyNotFoundError => new NotFoundObjectResult(new
             {
-                error = "NotFound",
                 message = error.Message
             }),
 
             UserCompanyOwnershipError => new ObjectResult(new
             {
-                error = "Forbidden",
                 message = error.Message
             })
             {
@@ -25,14 +23,12 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             InvalidBase64ImageFormatError imageError => new BadRequestObjectResult(new
             {
-                error = "ValidationError",
                 message = imageError.Message,
                 details = imageError.Details
             }),
 
             GetUserFirstCompanyAsyncError getUserError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = getUserError.Message,
                 details = getUserError.Details
             })
@@ -42,7 +38,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             ValidateUserCompanyOwnershipAsyncError validateError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = validateError.Message,
                 details = validateError.Details
             })
@@ -52,7 +47,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             GetCompanyDetailsAsyncError getDetailsError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = getDetailsError.Message,
                 details = getDetailsError.Details
             })
@@ -62,7 +56,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             UpdateCompanyAsyncError updateError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = updateError.Message,
                 details = updateError.Details
             })
@@ -72,7 +65,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             GetActiveLegalRepresentativeIdAsyncError getLegalRepError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = getLegalRepError.Message,
                 details = getLegalRepError.Details
             })
@@ -82,7 +74,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             UpdateLegalRepresentativeAsyncError updateLegalRepError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = updateLegalRepError.Message,
                 details = updateLegalRepError.Details
             })
@@ -92,7 +83,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             InsertLegalRepresentativeAsyncError insertLegalRepError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = insertLegalRepError.Message,
                 details = insertLegalRepError.Details
             })
@@ -102,7 +92,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             GetActiveBankAccountIdAsyncError getBankError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = getBankError.Message,
                 details = getBankError.Details
             })
@@ -112,7 +101,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             InsertBankAccountAsyncError insertBankError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = insertBankError.Message,
                 details = insertBankError.Details
             })
@@ -122,7 +110,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             UpdateBankAccountAsyncError updateBankError => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = updateBankError.Message,
                 details = updateBankError.Details
             })
@@ -132,7 +119,6 @@ public sealed class CompanyErrorMapper : IErrorHttpMapper<CompanyDomainError>
 
             _ => new ObjectResult(new
             {
-                error = "InternalServerError",
                 message = "An unexpected error occurred"
             })
             {

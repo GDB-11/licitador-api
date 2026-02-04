@@ -76,12 +76,11 @@ public class DocumentService : IDocument
                     new DocumentGenerationError("Error al procesar la plantilla del documento", ex));
             }
             
-            return Result<byte[], DocumentError>.Success(documentBytes);
+            return documentBytes;
         }
         catch (Exception ex)
         {
-            return Result<byte[], DocumentError>.Failure(
-                new DocumentGenerationError("Error inesperado al generar el documento", ex));
+            return new DocumentGenerationError("Error inesperado al generar el documento", ex);
         }
     }
     
