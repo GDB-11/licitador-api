@@ -18,9 +18,7 @@ public sealed class CompanyRepository : BaseDatabaseService, ICompanyRepository
     
     public async Task<Result<CompanyDetails?, CompanyError>> GetCompanyDetailsAsync(Guid companyId) =>
         await Result.TryAsync(
-            async () =>
-            {
-                var results = await _connection.QueryAsync<Company, LegalRepresentative?, BankAccount?, CompanyDetails>(
+                async () => await _connection.QueryAsync<Company, LegalRepresentative?, BankAccount?, CompanyDetails>(
                     CompanyRepositorySql.GetCompanyDetails,
                     (company, legalRep, bankAccount) => new CompanyDetails
                     {
@@ -30,12 +28,10 @@ public sealed class CompanyRepository : BaseDatabaseService, ICompanyRepository
                     },
                     new { CompanyId = companyId },
                     splitOn: "LegalRepresentativeId,BankAccountId"
-                );
-            
-                return results.FirstOrDefault();
-            },
+                ),
             CompanyError (ex) => new GetCompanyDetailsAsyncError(ex.Message, ex)
-        );
+        )
+        .MapAsync(result => result.FirstOrDefault());
 
     public async Task<Result<Unit, CompanyError>> UpdateCompanyAsync(Guid companyId, string ruc, string razonSocial, string domicilioLegal, string? telefono,
         string email, DateTime? fechaConstitucion, bool isMype) =>

@@ -83,6 +83,13 @@ public class DocumentService : IDocument
             return new DocumentGenerationError("Error inesperado al generar el documento", ex);
         }
     }
+
+    public async Task<Result<byte[], DocumentError>> GenerateAnnexesConsortiumAsync(
+        Guid userId,
+        GenerateAnnexesConsortiumRequest request)
+    {
+        throw new NotImplementedException();
+    }
     
     private async Task<Result<CompanyDetails, DocumentError>> GetCompanyDetailsByUserIdAsync(Guid userId)
     {
@@ -146,14 +153,15 @@ public class DocumentService : IDocument
         var culture = new CultureInfo("es-PE");
         
         // Procesar teléfonos
-        var phones = companyDetails.Company.Telefono?
-            .Split(new[] { ',', ';', '/' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            ?? Array.Empty<string>();
+        string[] phones = companyDetails.Company.Telefono?
+                              .Split(new[] { ',', ';', '/' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                          ?? Array.Empty<string>();
         
         var replacements = new Dictionary<string, string>
         {
             // Datos de la licitación
             ["{{NUMERO_PROCESO}}"] = request.LicitacionNumber,
+            ["{{ENTIDAD_CONTRATANTE}}"] = request.LicitacionNumber,
             ["{{CIUDAD}}"] = request.City,
             
             // Datos de fecha

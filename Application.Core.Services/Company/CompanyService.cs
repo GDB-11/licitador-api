@@ -6,6 +6,7 @@ using Application.Core.Interfaces.Company;
 using BindSharp;
 using BindSharp.Extensions;
 using Infrastructure.Core.Interfaces.Account;
+using Infrastructure.Core.Interfaces.Consortium;
 using Infrastructure.Core.Interfaces.Organization;
 using Infrastructure.Core.Models.Company;
 using GetActiveBankAccountIdAsyncError = Application.Core.DTOs.Company.Errors.GetActiveBankAccountIdAsyncError;
@@ -23,11 +24,13 @@ public sealed class CompanyService : ICompany
 {
     private readonly IUserRepository _userRepository;
     private readonly ICompanyRepository _companyRepository;
+    private readonly IConsortiumRepository _consortiumRepository;
 
-    public CompanyService(IUserRepository userRepository, ICompanyRepository companyRepository)
+    public CompanyService(IUserRepository userRepository, ICompanyRepository companyRepository, IConsortiumRepository consortiumRepository)
     {
         _userRepository = userRepository;
         _companyRepository = companyRepository;
+        _consortiumRepository = consortiumRepository;
     }
 
     public Task<Result<UserCompanyResponse, CompanyDomainError>> GetUserCompanyAsync(Guid userId) =>
@@ -46,12 +49,39 @@ public sealed class CompanyService : ICompany
             .MapErrorAsync(CompanyDomainError (error) => new ValidateUserCompanyOwnershipAsyncError(error.Message, error.Details, error.Exception))
             .EnsureAsync(hasOwnership => hasOwnership, new UserCompanyOwnershipError())
             .BindAsync(_ => _companyRepository.GetCompanyDetailsAsync(companyId)
-                .MapErrorAsync(CompanyDomainError (error) => new GetCompanyDetailsAsyncError(error.Message, error.Details, error.Exception))
-                .EnsureNotNullAsync(new CompanyNotFoundError())
-                .BindAsync(MapCompanyDetailsToResponse));
+                .MapErrorAsync(CompanyDomainError (error) => new GetCompanyDetailsAsyncError(error.Message, error.Details, error.Exception)))
+            .EnsureNotNullAsync(new CompanyNotFoundError())
+            .MapAsync(details => new UserCompanyDetailsResponse
+            {
+                CompanyId = details.Company.CompanyId,
+                Ruc = details.Company.Ruc,
+                RazonSocial = details.Company.RazonSocial,
+                DomicilioLegal = details.Company.DomicilioLegal,
+                Telefono = details.Company.Telefono,
+                Email = details.Company.Email,
+                FechaConstitucion = details.Company.FechaConstitucion,
+                IsMype = details.Company.IsMype,
+                LegalRepresentative = details.LegalRepresentative is not null ? new LegalRepresentativeDto
+                {
+                    LegalRepresentativeId = details.LegalRepresentative.LegalRepresentativeId,
+                    FullName = details.LegalRepresentative.FullName,
+                    DocumentType = details.LegalRepresentative.DocumentType,
+                    DocumentNumber = details.LegalRepresentative.DocumentNumber,
+                    NationalIdImage = details.LegalRepresentative.NationalIdImage is not null
+                        ? Convert.ToBase64String(details.LegalRepresentative.NationalIdImage)
+                        : null
+                } : null,
+                BankAccount = details.BankAccount is not null ? new BankAccountDto
+                {
+                    BankAccountId = details.BankAccount.BankAccountId,
+                    BankName = details.BankAccount.BankName,
+                    AccountNumber = details.BankAccount.AccountNumber,
+                    CciCode = details.BankAccount.CciCode
+                } : null
+            });
 
-    public Task<Result<Unit, CompanyDomainError>> UpdateCompanyDetailsAsync(Guid userId, UpdateCompanyDetailsRequest request) =>
-        MapRequestToInfrastructureModels(request)
+    public async Task<Result<Unit, CompanyDomainError>> UpdateCompanyDetailsAsync(Guid userId, UpdateCompanyDetailsRequest request) =>
+        await MapRequestToInfrastructureModels(request)
             .BindAsync(mapped => _userRepository.ValidateUserCompanyOwnershipAsync(userId, request.CompanyId)
                 .MapErrorAsync(CompanyDomainError (error) => new ValidateUserCompanyOwnershipAsyncError(error.Message, error.Details, error.Exception))
                 .EnsureAsync(hasOwnership => hasOwnership, new UserCompanyOwnershipError())
@@ -79,46 +109,12 @@ public sealed class CompanyService : ICompany
             .BindAsync(_ => _companyRepository.GetCompanyDetailsAsync(companyId)
                 .MapErrorAsync(CompanyDomainError (error) => new GetCompanyDetailsAsyncError(error.Message, error.Details, error.Exception))
                 .EnsureNotNullAsync(new CompanyNotFoundError())
-                .MapAsync(companyDetails => new CompanyStatisticsResponse
+                .MapAsync(async companyDetails => new CompanyStatisticsResponse
                 {
                     GeneratedDocuments = 0, // You'll need to populate this
                     CompleteProfilePercentage = CalculateProfileCompletion(companyDetails.Company, companyDetails.LegalRepresentative, companyDetails.BankAccount),
-                    ConsortiaCompanies = GetConsortiaCompanies(companyDetails.Company.CompanyId)
+                    ConsortiaCompanies = await GetConsortiaCompanies(companyDetails.Company.CompanyId)
                 }));
-
-    private static Task<Result<UserCompanyDetailsResponse, CompanyDomainError>> MapCompanyDetailsToResponse(CompanyDetails details)
-    {
-        var response = new UserCompanyDetailsResponse
-        {
-            CompanyId = details.Company.CompanyId,
-            Ruc = details.Company.Ruc,
-            RazonSocial = details.Company.RazonSocial,
-            DomicilioLegal = details.Company.DomicilioLegal,
-            Telefono = details.Company.Telefono,
-            Email = details.Company.Email,
-            FechaConstitucion = details.Company.FechaConstitucion,
-            IsMype = details.Company.IsMype,
-            LegalRepresentative = details.LegalRepresentative is not null ? new LegalRepresentativeDto
-            {
-                LegalRepresentativeId = details.LegalRepresentative.LegalRepresentativeId,
-                FullName = details.LegalRepresentative.FullName,
-                DocumentType = details.LegalRepresentative.DocumentType,
-                DocumentNumber = details.LegalRepresentative.DocumentNumber,
-                NationalIdImage = details.LegalRepresentative.NationalIdImage is not null
-                    ? Convert.ToBase64String(details.LegalRepresentative.NationalIdImage)
-                    : null
-            } : null,
-            BankAccount = details.BankAccount is not null ? new BankAccountDto
-            {
-                BankAccountId = details.BankAccount.BankAccountId,
-                BankName = details.BankAccount.BankName,
-                AccountNumber = details.BankAccount.AccountNumber,
-                CciCode = details.BankAccount.CciCode
-            } : null
-        };
-
-        return Task.FromResult(Result<UserCompanyDetailsResponse, CompanyDomainError>.Success(response));
-    }
 
     private static Result<(LegalRepresentativeUpdate? LegalRepresentative, BankAccountUpdate? BankAccount), CompanyDomainError> MapRequestToInfrastructureModels(
         UpdateCompanyDetailsRequest request)
@@ -221,8 +217,10 @@ public sealed class CompanyService : ICompany
         _ => true
     };
 
-    private int GetConsortiaCompanies(Guid companyId)
-    {
-        return 0;
-    }
+    private async Task<int> GetConsortiaCompanies(Guid companyId) =>
+        await _consortiumRepository.GetNumberOfActiveConsortiumCompanies(companyId)
+            .MatchAsync(
+                result => result,
+                _ => 0
+            );
 }

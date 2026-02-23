@@ -129,47 +129,85 @@ CREATE TABLE "Company"."NotificationSettings" (
 
 CREATE INDEX "IDX_NotificationSettings_CompanyId" ON "Company"."NotificationSettings"("CompanyId");
 
-CREATE TABLE "Company"."ConsortiumCompanies" (
+-- =====================================================
+-- Tabla: Empresa Consorciada
+-- =====================================================
+
+CREATE TABLE "Company"."ConsortiumCompany" (
     "ConsortiumCompanyId" UUID PRIMARY KEY DEFAULT uuidv7(),
-    "CompanyId" UUID NOT NULL,  -- La empresa que registra la consorciada
+    "CompanyId" UUID NOT NULL,
+
+    -- Datos empresariales
     "Ruc" CHAR(11) NOT NULL,
+    "RnpRegistration" CHAR(7) NOT NULL,
     "RazonSocial" VARCHAR(500) NOT NULL,
     "NombreComercial" VARCHAR(500) NULL,
+    "RnpValidUntil" DATE NOT NULL,
+    "MainActivity" VARCHAR(500) NULL,
     "DomicilioFiscal" VARCHAR(1000) NOT NULL,
-    
-    -- Representante Legal
-    "LegalRepDni" VARCHAR(20) NOT NULL,
-    "LegalRepFullName" VARCHAR(255) NOT NULL,
-    "LegalRepPosition" VARCHAR(100) NOT NULL,
-    
-    -- Contacto
+
+    -- Datos de contacto
     "ContactPhone" VARCHAR(50) NOT NULL,
     "ContactEmail" VARCHAR(255) NOT NULL,
-    
-    -- Datos adicionales
-    "MainActivity" VARCHAR(500) NULL,
-    "RnpRegistration" VARCHAR(100) NULL,
-    "RnpValidUntil" DATE NULL,
-    
+
     -- Control
     "IsActive" BOOLEAN NOT NULL DEFAULT TRUE,
     "CreatedDate" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "UpdatedDate" TIMESTAMPTZ NULL,
-    
-    CONSTRAINT "FK_ConsortiumCompanies_Companies" FOREIGN KEY ("CompanyId") 
+
+    CONSTRAINT "FK_ConsortiumCompany_Company" FOREIGN KEY ("CompanyId")
         REFERENCES "Company"."Companies"("CompanyId") ON DELETE CASCADE,
-    CONSTRAINT "CK_ConsortiumCompanies_Ruc" CHECK ("Ruc" ~ '^[0-9]{11}$'),
-    CONSTRAINT "CK_ConsortiumCompanies_ContactEmail" 
+    CONSTRAINT "CK_ConsortiumCompany_Ruc" CHECK ("Ruc" ~ '^[0-9]{11}$'),
+    CONSTRAINT "CK_ConsortiumCompany_RnpRegistration" CHECK (LENGTH("RnpRegistration") = 7),
+    CONSTRAINT "CK_ConsortiumCompany_ContactEmail"
         CHECK ("ContactEmail" ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
-    -- Evitar que la misma empresa registre dos veces la misma consorciada
-    CONSTRAINT "UK_ConsortiumCompanies_Company_Ruc" UNIQUE ("CompanyId", "Ruc")
+    CONSTRAINT "UK_ConsortiumCompany_Company_Ruc" UNIQUE ("CompanyId", "Ruc")
 );
 
-CREATE INDEX "IDX_ConsortiumCompanies_CompanyId" ON "Company"."ConsortiumCompanies"("CompanyId");
-CREATE INDEX "IDX_ConsortiumCompanies_Ruc" ON "Company"."ConsortiumCompanies"("Ruc");
-CREATE INDEX "IDX_ConsortiumCompanies_IsActive" ON "Company"."ConsortiumCompanies"("IsActive");
-CREATE INDEX "IDX_ConsortiumCompanies_CreatedDate" ON "Company"."ConsortiumCompanies"("CreatedDate" DESC);
-CREATE INDEX "IDX_ConsortiumCompanies_RnpValidUntil" ON "Company"."ConsortiumCompanies"("RnpValidUntil");
+CREATE INDEX "IDX_ConsortiumCompany_CompanyId" ON "Company"."ConsortiumCompany"("CompanyId");
+CREATE INDEX "IDX_ConsortiumCompany_Ruc" ON "Company"."ConsortiumCompany"("Ruc");
+CREATE INDEX "IDX_ConsortiumCompany_RnpRegistration" ON "Company"."ConsortiumCompany"("RnpRegistration");
+CREATE INDEX "IDX_ConsortiumCompany_IsActive" ON "Company"."ConsortiumCompany"("IsActive");
+CREATE INDEX "IDX_ConsortiumCompany_CreatedDate" ON "Company"."ConsortiumCompany"("CreatedDate" DESC);
+CREATE INDEX "IDX_ConsortiumCompany_RnpValidUntil" ON "Company"."ConsortiumCompany"("RnpValidUntil");
+
+CREATE TRIGGER "TR_ConsortiumCompany_UpdateTimestamp"
+    BEFORE UPDATE ON "Company"."ConsortiumCompany"
+    FOR EACH ROW
+    EXECUTE FUNCTION "UpdateTimestamp"();
+
+-- =====================================================
+-- Tabla: Representante Legal de Empresa Consorciada
+-- =====================================================
+
+CREATE TABLE "Company"."ConsortiumLegalRepresentative" (
+    "ConsortiumLegalRepresentativeId" UUID PRIMARY KEY DEFAULT uuidv7(),
+    "ConsortiumCompanyId" UUID NOT NULL,
+
+    -- Datos del representante
+    "Dni" CHAR(8) NOT NULL,
+    "FullName" VARCHAR(255) NOT NULL,
+    "Position" VARCHAR(100) NOT NULL,
+
+    -- Control
+    "IsActive" BOOLEAN NOT NULL DEFAULT TRUE,
+    "CreatedDate" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "UpdatedDate" TIMESTAMPTZ NULL,
+
+    CONSTRAINT "FK_ConsortiumLegalRepresentative_ConsortiumCompany" FOREIGN KEY ("ConsortiumCompanyId")
+        REFERENCES "Company"."ConsortiumCompany"("ConsortiumCompanyId") ON DELETE CASCADE,
+    CONSTRAINT "CK_ConsortiumLegalRepresentative_Dni" CHECK ("Dni" ~ '^[0-9]{8}$')
+);
+
+CREATE INDEX "IDX_ConsortiumLegalRepresentative_ConsortiumCompanyId" ON "Company"."ConsortiumLegalRepresentative"("ConsortiumCompanyId");
+CREATE INDEX "IDX_ConsortiumLegalRepresentative_Dni" ON "Company"."ConsortiumLegalRepresentative"("Dni");
+CREATE INDEX "IDX_ConsortiumLegalRepresentative_IsActive" ON "Company"."ConsortiumLegalRepresentative"("IsActive");
+CREATE INDEX "IDX_ConsortiumLegalRepresentative_CreatedDate" ON "Company"."ConsortiumLegalRepresentative"("CreatedDate" DESC);
+
+CREATE TRIGGER "TR_ConsortiumLegalRepresentative_UpdateTimestamp"
+    BEFORE UPDATE ON "Company"."ConsortiumLegalRepresentative"
+    FOR EACH ROW
+    EXECUTE FUNCTION "UpdateTimestamp"();
 
 -- =====================================================
 -- SCHEMA: Document (Gestión de Documentos)

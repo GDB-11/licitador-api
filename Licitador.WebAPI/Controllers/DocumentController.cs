@@ -27,21 +27,43 @@ public sealed class DocumentController : FunctionalController
     }
 
     /// <summary>
-    /// Generates annex document (DOCX) based on licitacion information and company data
+    /// Generates annex document (DOCX) based on licitacion information and company data for one company
     /// </summary>
     /// <param name="request">Licitacion and notification information</param>
     /// <returns>DOCX file containing Anexo 1, 2, and 3</returns>
-    [HttpPost("generate-annexes")]
+    [HttpPost("generate-annexes-single")]
     [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public Task<IActionResult> GenerateAnnexes([FromBody] GenerateAnnexesRequest request) =>
+    public Task<IActionResult> GenerateAnnexesSingle([FromBody] GenerateAnnexesRequest request) =>
         ExecuteAuthenticatedAsync(
             operation: userId => _documentService.GenerateAnnexesAsync(userId, request),
             errorMapper: _errorMapper,
-            operationName: nameof(GenerateAnnexes),
+            operationName: nameof(GenerateAnnexesSingle),
+            successMapper: fileBytes => File(
+                fileBytes,
+                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                $"Anexos_{request.LicitacionNumber}_{DateTime.UtcNow:yyyyMMdd}.docx")
+        );
+    
+    /// <summary>
+    /// Generates annex document (DOCX) based on licitacion information and company data for multiple companies
+    /// </summary>
+    /// <param name="request">Licitacion and notification information</param>
+    /// <returns>DOCX file containing Anexo 1, 2, and 3</returns>
+    [HttpPost("generate-annexes-consortium")]
+    [ProducesResponseType(typeof(FileContentResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public Task<IActionResult> GenerateAnnexesConsortium([FromBody] GenerateAnnexesRequest request) =>
+        ExecuteAuthenticatedAsync(
+            operation: userId => _documentService.GenerateAnnexesAsync(userId, request),
+            errorMapper: _errorMapper,
+            operationName: nameof(GenerateAnnexesConsortium),
             successMapper: fileBytes => File(
                 fileBytes,
                 "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

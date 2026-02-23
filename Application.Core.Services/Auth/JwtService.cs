@@ -31,7 +31,7 @@ public sealed class JwtService : IJwt
 
     public string GenerateRefreshToken()
     {
-        var randomNumber = new byte[32];
+        byte[] randomNumber = new byte[32];
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
@@ -64,8 +64,8 @@ public sealed class JwtService : IJwt
         };
 
         var handler = new JsonWebTokenHandler();
-        var accessToken = handler.CreateToken(tokenDescriptor);
-        var refreshToken = GenerateRefreshToken();
+        string? accessToken = handler.CreateToken(tokenDescriptor);
+        string refreshToken = GenerateRefreshToken();
 
         return (accessToken, refreshToken, expiresAt);
     }

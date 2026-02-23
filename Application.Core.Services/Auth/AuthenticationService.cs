@@ -38,13 +38,14 @@ public sealed class AuthenticationService : IAuthentication
         _userRepository.GetByEmailAsync(request.Email)
             .MapErrorAsync(AuthenticationError (error) => new GetByEmailAsyncError(error.Message, error.Details, error.Exception))
             .EnsureNotNullAsync(new UserNotFoundError())
+            .EnsureAsync(user => user.IsActive, new UserInactiveError())
             .BindAsync(user => ValidateUserCredentials(user, request.Password));
 
     public Task<Result<LoginResponse, AuthenticationError>> RefreshTokenAsync(RefreshTokenRequest request) =>
         _userRepository.GetByRefreshTokenAsync(request.RefreshToken)
             .MapErrorAsync(AuthenticationError (error) => new GetByRefreshTokenAsyncError(error.Message, error.Details, error.Exception))
             .EnsureNotNullAsync(new RefreshTokenNotFoundError())
-            .BindAsync(ValidateUserActive)
+            .EnsureAsync(user => user.IsActive, new UserInactiveError())
             .BindAsync(GenerateAndStoreNewTokens);
 
     public Task<Result<Unit, AuthenticationError>> LogoutAsync(LogoutRequest request) =>
@@ -54,21 +55,11 @@ public sealed class AuthenticationService : IAuthentication
             .BindAsync(user => _userRepository.ClearRefreshTokenAsync(user.UserId)
                 .MapErrorAsync(AuthenticationError (error) => new JwtGenerationError()));
 
-    private Task<Result<LoginResponse, AuthenticationError>> ValidateUserCredentials(User user, string password)
-    {
-        if (!user.IsActive)
-            return Task.FromResult(Result<LoginResponse, AuthenticationError>.Failure(new UserInactiveError()));
-
-        return _passwordService.VerifyPassword(password, user.PasswordHash)
+    private Task<Result<LoginResponse, AuthenticationError>> ValidateUserCredentials(User user, string password) =>
+        _passwordService.VerifyPassword(password, user.PasswordHash)
             .MapError(AuthenticationError (encryptionError) => new ChaChaDecryptError(encryptionError.Message, encryptionError.Details, encryptionError.Exception))
             .Ensure(isValid => isValid, new InvalidUserTokenError())
             .BindAsync(_ => GenerateAndStoreNewTokens(user));
-    }
-
-    private static Result<User, AuthenticationError> ValidateUserActive(User user) =>
-        user.IsActive
-            ? user
-            : new UserInactiveError();
 
     private Task<Result<LoginResponse, AuthenticationError>> GenerateAndStoreNewTokens(User user) =>
         _jwtService.GenerateTokens(user)
@@ -77,12 +68,9 @@ public sealed class AuthenticationService : IAuthentication
                 .MapErrorAsync(AuthenticationError (error) => new JwtStorageError(error.Details, error.Exception))
                 .MapAsync(_ => GenerateLoginResponse(user, tokens)));
 
-    private Task<Result<Unit, AuthenticationError>> StoreRefreshToken(Guid userId, string refreshToken)
-    {
-        DateTime expirationDate = _timeProvider.UtcNow.AddMinutes(_jwtConfig.RefreshTokenExpiryMinutes);
-        return _userRepository.UpdateRefreshTokenAsync(userId, refreshToken, expirationDate)
+    private Task<Result<Unit, AuthenticationError>> StoreRefreshToken(Guid userId, string refreshToken) =>
+        _userRepository.UpdateRefreshTokenAsync(userId, refreshToken, _timeProvider.UtcNow.AddMinutes(_jwtConfig.RefreshTokenExpiryMinutes))
             .MapErrorAsync(AuthenticationError (error) => new StoreRefreshTokenError(error.Message, error.Details, error.Exception));
-    }
 
     private static LoginResponse GenerateLoginResponse(User user, (string AccessToken, string RefreshToken, DateTime ExpiresAt) tokens) =>
        new()

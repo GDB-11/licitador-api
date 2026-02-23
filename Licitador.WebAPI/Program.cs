@@ -22,9 +22,14 @@ using System.Data;
 using System.Text;
 using Application.Core.DTOs.Auth.Errors;
 using Application.Core.DTOs.Company.Errors;
+using Application.Core.DTOs.Consortium.Errors;
 using Application.Core.DTOs.Document.Errors;
 using Application.Core.DTOs.Encryption.Errors;
+using Application.Core.Interfaces.Consortium;
+using Application.Core.Services.Consortium;
+using Infrastructure.Core.Interfaces.Consortium;
 using Infrastructure.Core.Interfaces.Organization;
+using Infrastructure.Core.Services.Consortium;
 using Infrastructure.Core.Services.Organization;
 using Microsoft.OpenApi;
 
@@ -64,6 +69,7 @@ builder.Services.AddTransient<IDbConnection>(sp =>
 builder.Services.AddScoped<IKeyRepository, KeyRepository>();
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IConsortiumRepository, ConsortiumRepository>();
 #endregion
 
 #region Register loggers
@@ -75,6 +81,7 @@ builder.Services.AddScoped<IErrorHttpMapper<ChaChaEncryptionError>, ChaChaEncryp
 builder.Services.AddScoped<IErrorHttpMapper<AuthenticationError>, AuthErrorMapper>();
 builder.Services.AddScoped<IErrorHttpMapper<CompanyDomainError>, CompanyErrorMapper>();
 builder.Services.AddScoped<IErrorHttpMapper<DocumentError>, DocumentErrorMapper>();
+builder.Services.AddScoped<IErrorHttpMapper<ConsortiumDomainError>, ConsortiumErrorMapper>();
 #endregion
 
 #region Register services
@@ -90,6 +97,7 @@ builder.Services.AddScoped<IAuthentication, AuthenticationService>();
 builder.Services.AddScoped<ICompany, CompanyService>();
 builder.Services.AddScoped<WordTemplateService>();
 builder.Services.AddScoped<IDocument, DocumentService>();
+builder.Services.AddScoped<IConsortium, ConsortiumService>();
 #endregion
 
 builder.Services.AddControllers();
