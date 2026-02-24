@@ -7,6 +7,7 @@ namespace Infrastructure.Core.Interfaces.Organization;
 public interface ICompanyRepository
 {
     Task<Result<CompanyDetails?, CompanyError>> GetCompanyDetailsAsync(Guid companyId);
+    Task<Result<CompanyDetails?, CompanyError>> GetCompanyDetailsByConsortiumCompanyIdAsync(string consortiumCompanyId);
     Task<Result<Unit, CompanyError>> UpdateCompanyAsync(
         Guid companyId,
         string ruc,

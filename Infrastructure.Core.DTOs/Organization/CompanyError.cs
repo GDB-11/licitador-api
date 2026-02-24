@@ -4,7 +4,10 @@ public abstract record CompanyError(string Message, string? Details = null, Exce
 
 public sealed record GetCompanyDetailsAsyncError(string? Details = null, Exception? Exception = null)
     : CompanyError("An unexpected error occurred while retrieving the company details.", Details, Exception);
-    
+
+public sealed record GetCompanyDetailsByConsortiumCompanyIdAsyncError(string? Details = null, Exception? Exception = null)
+    : CompanyError("An unexpected error occurred while retrieving the company details by consortium company ID.", Details, Exception);
+
 public sealed record UpdateCompanyAsyncError(string? Details = null, Exception? Exception = null)
     : CompanyError("An unexpected error occurred while updating the company.", Details, Exception);
     

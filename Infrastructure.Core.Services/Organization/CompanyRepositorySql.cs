@@ -6,7 +6,7 @@ public static class CompanyRepositorySql
                                             SELECT 
                                                 c."CompanyId", c."Ruc", c."RazonSocial", c."DomicilioLegal", 
                                                 c."Telefono", c."Email", c."FechaConstitucion", c."IsMype", c."CreatedDate", c."UpdatedDate",
-                                                lr."LegalRepresentativeId", lr."CompanyId" AS "LRCompanyId", lr."FullName", 
+                                                lr."LegalRepresentativeId", lr."CompanyId" AS "LRCompanyId", lr."FullName",
                                                 lr."DocumentType", lr."DocumentNumber", lr."PowerRegistrationLocation", 
                                                 lr."PowerRegistrationSheet", lr."PowerRegistrationEntry", lr."NationalIdImage", 
                                                 lr."IsActive" AS "LRIsActive", lr."CreatedDate" AS "LRCreatedDate", 
@@ -33,7 +33,40 @@ public static class CompanyRepositorySql
                                             ) ba ON TRUE
                                             WHERE c."CompanyId" = @CompanyId
                                             """;
-    
+
+    public const string GetCompanyDetailsByConsortiumCompanyId = """
+                                                                  SELECT 
+                                                                      c."CompanyId", c."Ruc", c."RazonSocial", c."DomicilioLegal", 
+                                                                      c."Telefono", c."Email", c."FechaConstitucion", c."IsMype", c."CreatedDate", c."UpdatedDate",
+                                                                      lr."LegalRepresentativeId", lr."CompanyId" AS "LRCompanyId", lr."FullName", 
+                                                                      lr."DocumentType", lr."DocumentNumber", lr."PowerRegistrationLocation", 
+                                                                      lr."PowerRegistrationSheet", lr."PowerRegistrationEntry", lr."NationalIdImage", 
+                                                                      lr."IsActive" AS "LRIsActive", lr."CreatedDate" AS "LRCreatedDate", 
+                                                                      lr."UpdatedDate" AS "LRUpdatedDate",
+                                                                      ba."BankAccountId", ba."CompanyId" AS "BACompanyId", ba."BankName", 
+                                                                      ba."AccountNumber", ba."CciCode", ba."IsActive" AS "BAIsActive",
+                                                                      ba."CreatedDate" AS "BACreatedDate", ba."UpdatedDate" AS "BAUpdatedDate"
+                                                                  FROM "Consortium"."ConsortiumCompanies" cc
+                                                                  INNER JOIN "Company"."Companies" c ON c."CompanyId" = cc."CompanyId"
+                                                                  LEFT JOIN LATERAL (
+                                                                      SELECT * 
+                                                                      FROM "Consortium"."ConsortiumCompanyLegalRepresentatives" 
+                                                                      WHERE "ConsortiumCompanyId" = cc."ConsortiumCompanyId" 
+                                                                        AND "IsActive" = TRUE 
+                                                                      ORDER BY "CreatedDate" DESC 
+                                                                      LIMIT 1
+                                                                  ) lr ON TRUE
+                                                                  LEFT JOIN LATERAL (
+                                                                      SELECT * 
+                                                                      FROM "Company"."BankAccounts" 
+                                                                      WHERE "CompanyId" = c."CompanyId" 
+                                                                        AND "IsActive" = TRUE 
+                                                                      ORDER BY "CreatedDate" DESC 
+                                                                      LIMIT 1
+                                                                  ) ba ON TRUE
+                                                                  WHERE cc."ConsortiumCompanyId" = @ConsortiumCompanyId
+                                                                  """;
+
     public const string UpdateCompany = """
                                         UPDATE "Company"."Companies"
                                         SET "Ruc" = @Ruc,

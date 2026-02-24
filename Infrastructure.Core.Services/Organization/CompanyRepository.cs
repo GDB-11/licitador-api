@@ -154,4 +154,21 @@ public sealed class CompanyRepository : BaseDatabaseService, ICompanyRepository
 
         return bankAccountId;
     }
+
+    public async Task<Result<CompanyDetails?, CompanyError>> GetCompanyDetailsByConsortiumCompanyIdAsync(string consortiumCompanyId) =>
+        await Result.TryAsync(  
+                async () => await _connection.QueryAsync<Company, LegalRepresentative?, BankAccount?, CompanyDetails>(
+                    CompanyRepositorySql.GetCompanyDetailsByConsortiumCompanyId,
+                    (company, legalRep, bankAccount) => new CompanyDetails
+                    {
+                        Company = company,
+                        LegalRepresentative = legalRep,
+                        BankAccount = bankAccount
+                    },
+                    new { ConsortiumCompanyId = consortiumCompanyId },
+                    splitOn: "LegalRepresentativeId,BankAccountId"
+                ),
+            CompanyError (ex) => new GetCompanyDetailsByConsortiumCompanyIdAsyncError(ex.Message, ex)
+        )
+        .MapAsync(result => result.FirstOrDefault());
 }

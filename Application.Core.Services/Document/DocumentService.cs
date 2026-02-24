@@ -88,7 +88,133 @@ public class DocumentService : IDocument
         Guid userId,
         GenerateAnnexesConsortiumRequest request)
     {
-        throw new NotImplementedException();
+        try
+        {
+            var consortiumMembers = request.Members;
+            var memberCount = consortiumMembers.Count;
+
+            if (memberCount < 2 || memberCount > 3)
+            {
+                return Result<byte[], DocumentError>.Failure(
+                    new DocumentValidationError("El consorcio debe tener 2 o 3 empresas participantes"));
+            }
+
+            var leaderCompanyDetails = await GetCompanyDetailsByUserIdAsync(userId);
+
+            if (leaderCompanyDetails.IsFailure)
+            {
+                return Result<byte[], DocumentError>.Failure(leaderCompanyDetails.Error);
+            }
+
+            var validationError = ValidateCompanyDetails(leaderCompanyDetails.Value);
+            if (validationError != null)
+            {
+                return Result<byte[], DocumentError>.Failure(validationError);
+            }
+
+            byte[] templateBytes;
+            try
+            {
+                var templateBase64 = memberCount == 2 
+                    ? DocumentTemplates.AnexoConsorcioDosParticipantesTemplate 
+                    : DocumentTemplates.AnexoConsorcioTresParticipantesTemplate;
+
+                templateBytes = Convert.FromBase64String(templateBase64);
+            }
+            catch (FormatException ex)
+            {
+                return Result<byte[], DocumentError>.Failure(
+                    new DocumentGenerationError("Error al cargar la plantilla del documento", ex));
+            }
+
+            var replacements = await BuildConsortiumReplacements(request, leaderCompanyDetails.Value, consortiumMembers);
+
+            byte[] documentBytes;
+            try
+            {
+                documentBytes = _templateService.FillTemplate(templateBytes, replacements);
+            }
+            catch (Exception ex)
+            {
+                return Result<byte[], DocumentError>.Failure(
+                    new DocumentGenerationError("Error al procesar la plantilla del documento", ex));
+            }
+
+            return documentBytes;
+        }
+        catch (Exception ex)
+        {
+            return new DocumentGenerationError("Error inesperado al generar el documento", ex);
+        }
+    }
+
+    private async Task<Dictionary<string, string>> BuildConsortiumReplacements(
+        GenerateAnnexesConsortiumRequest request,
+        CompanyDetails leaderCompanyDetails,
+        List<ConsortiumMember> members)
+    {
+        var now = DateTime.Now;
+        var culture = new CultureInfo("es-PE");
+
+        var replacements = new Dictionary<string, string>
+        {
+            ["{{NUMERO_PROCESO}}"] = request.LicitacionNumber,
+            ["{{NOMBRE_CONSORCIO}}"] = request.ConsortiumName,
+            ["{{CIUDAD}}"] = request.City,
+            ["{{FECHA}}"] = now.ToString("dd/MM/yyyy", culture),
+
+            ["{{NOMBRE_REPRESENTANTE_LEGAL_LIDER}}"] = leaderCompanyDetails.LegalRepresentative?.FullName ?? "",
+            ["{{TIPO_DOCUMENTO_REPRESENTANTE_LEGAL_LIDER}}"] = leaderCompanyDetails.LegalRepresentative?.DocumentType ?? "DNI",
+            ["{{NUM_DOCUMENTO_REPRESENTANTE_LEGAL_LIDER}}"] = leaderCompanyDetails.LegalRepresentative?.DocumentNumber ?? "",
+
+            ["{{RAZON_SOCIAL_EMPRESA_LIDER}}"] = leaderCompanyDetails.Company.RazonSocial,
+            ["{{NUMERO_FICHA}}"] = request.NumeroFicha ?? "",
+            ["{{NUMERO_ASIENTO}}"] = request.NumeroAsiento ?? ""
+        };
+
+        for (int i = 0; i < members.Count; i++)
+        {
+            var member = members[i];
+            int enterpriseNumber = i + 1;
+
+            CompanyDetails memberDetails;
+
+            if (member.EsEmpresaPropia)
+            {
+                memberDetails = leaderCompanyDetails;
+            }
+            else
+            {
+                if (string.IsNullOrEmpty(member.ConsortiumCompanyId))
+                {
+                    continue;
+                }
+
+                var companyData = await _companyRepository.GetCompanyDetailsByConsortiumCompanyIdAsync(member.ConsortiumCompanyId);
+
+                if (companyData.IsFailure || companyData.Value is null)
+                {
+                    continue;
+                }
+
+                memberDetails = companyData.Value;
+            }
+
+            string[] phones = memberDetails.Company.Telefono?
+                                  .Split(new[] { ',', ';', '/' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                              ?? Array.Empty<string>();
+
+            replacements[$"{{{{RAZON_SOCIAL_EMPRESA_{enterpriseNumber}}}}}"] = memberDetails.Company.RazonSocial;
+            replacements[$"{{{{DOMICILIO_LEGAL_EMPRESA_{enterpriseNumber}}}}}"] = memberDetails.Company.DomicilioLegal;
+            replacements[$"{{{{RUC_EMPRESA_{enterpriseNumber}}}}}"] = memberDetails.Company.Ruc;
+            replacements[$"{{{{TEL1EMP_{enterpriseNumber}}}}}"] = phones.Length > 0 ? phones[0] : "";
+            replacements[$"{{{{TEL2EMP_{enterpriseNumber}}}}}"] = phones.Length > 1 ? phones[1] : "";
+            replacements[$"{{{{CORREO_EMPRESA_{enterpriseNumber}}}}}"] = memberDetails.Company.Email;
+            replacements[$"{{{{MYPESI_E{enterpriseNumber}}}}}"] = memberDetails.Company.IsMype ? "X" : " ";
+            replacements[$"{{{{MYPENO_E{enterpriseNumber}}}}}"] = memberDetails.Company.IsMype ? " " : "X";
+        }
+
+        return replacements;
     }
     
     private async Task<Result<CompanyDetails, DocumentError>> GetCompanyDetailsByUserIdAsync(Guid userId)
@@ -189,8 +315,8 @@ public class DocumentService : IDocument
             ["{{NUM_DOC_REPRESENTANTE_LEGAL}}"] = companyDetails.LegalRepresentative?.DocumentNumber ?? "",
             
             // Datos de poder
-            ["{{NUMERO_FICHA}}"] = companyDetails.LegalRepresentative?.PowerRegistrationSheet ?? "",
-            ["{{NUMERO_ASIENTO}}"] = companyDetails.LegalRepresentative?.PowerRegistrationEntry ?? ""
+            ["{{NUMERO_FICHA}}"] = request.NumeroFicha ?? "",
+            ["{{NUMERO_ASIENTO}}"] = request.NumeroAsiento ?? ""
         };
         
         return replacements;

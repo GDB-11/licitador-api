@@ -59,9 +59,9 @@ public sealed class DocumentController : FunctionalController
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-    public Task<IActionResult> GenerateAnnexesConsortium([FromBody] GenerateAnnexesRequest request) =>
+    public Task<IActionResult> GenerateAnnexesConsortium([FromBody] GenerateAnnexesConsortiumRequest request) =>
         ExecuteAuthenticatedAsync(
-            operation: userId => _documentService.GenerateAnnexesAsync(userId, request),
+            operation: userId => _documentService.GenerateAnnexesConsortiumAsync(userId, request),
             errorMapper: _errorMapper,
             operationName: nameof(GenerateAnnexesConsortium),
             successMapper: fileBytes => File(

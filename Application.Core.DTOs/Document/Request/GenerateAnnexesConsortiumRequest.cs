@@ -25,17 +25,39 @@ public sealed record GenerateAnnexesConsortiumRequest
     public required string ConsortiumName { get; init; }
 
     [Required]
+    public required bool IsOwnCompanyLeader { get; init; }
+
+    [StringLength(50)]
+    public string? LeaderConsortiumCompanyId { get; init; }
+
+    [Required]
+    [MinLength(2)]
+    [MaxLength(3)]
+    public required List<ConsortiumMember> Members { get; init; }
+
+    [Required]
     public required bool AutorizaNotificacionesEmail { get; init; }
 
     [EmailAddress]
     [StringLength(255)]
     public string? EmailNotificaciones { get; init; }
-    
-    // [Required]
-    // [StringLength(20, MinimumLength = 4)]
-    // public required string Ficha { get; init; }
-    //
-    // [Required]
-    // [StringLength(20, MinimumLength = 4)]
-    // public required string Asiento { get; init; }
+
+    [StringLength(20)]
+    public string? NumeroFicha { get; init; }
+
+    [StringLength(20)]
+    public string? NumeroAsiento { get; init; }
+}
+
+public sealed record ConsortiumMember
+{
+    [StringLength(50)]
+    public string? ConsortiumCompanyId { get; init; }
+
+    [Required]
+    public required bool EsEmpresaPropia { get; init; }
+
+    [Required]
+    [Range(0.01, 100)]
+    public required double PorcentajeParticipacion { get; init; }
 }
