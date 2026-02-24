@@ -26,4 +26,12 @@ public sealed record GenerateAnnexesRequest
     [EmailAddress]
     [StringLength(255)]
     public string? EmailNotificaciones { get; init; }
+    
+    // [Required]
+    // [StringLength(20, MinimumLength = 4)]
+    // public required string Ficha { get; init; }
+    //
+    // [Required]
+    // [StringLength(20, MinimumLength = 4)]
+    // public required string Asiento { get; init; }
 }
