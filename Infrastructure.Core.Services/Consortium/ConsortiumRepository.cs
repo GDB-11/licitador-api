@@ -53,7 +53,7 @@ public sealed class ConsortiumRepository: BaseDatabaseService, IConsortiumReposi
             .MapAsync(result => result.SingleOrDefault());
 
     public async Task<Result<Unit, ConsortiumError>>
-        InsertConsortiumCompanyAsync(ConsortiumCompany consortiumCompany) =>
+        InsertConsortiumCompanyAsync(CreateConsortiumCompany consortiumCompany) =>
         await Result.TryAsync(
             operation: async () => await ExecuteNonQueryAsync(_connection, ConsortiumRepositorySql.InsertConsortiumCompany, new
             {

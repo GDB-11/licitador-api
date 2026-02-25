@@ -6,7 +6,7 @@ namespace Application.Core.Helpers.Consortium;
 
 public static class ConsortiumMapper
 {
-    public static ConsortiumCompany ToDatabaseObject(this CreateConsortiumCompanyRequest request, Guid consortiumCompanyId, Guid consortiumLegalRepresentativeId) =>
+    public static CreateConsortiumCompany ToDatabaseObject(this CreateConsortiumCompanyRequest request, Guid consortiumCompanyId, Guid consortiumLegalRepresentativeId) =>
         new()
         {
             ConsortiumCompanyId = consortiumCompanyId,
@@ -15,7 +15,7 @@ public static class ConsortiumMapper
             RnpRegistration = request.RnpRegistration,
             RazonSocial = request.RazonSocial,
             NombreComercial = request.NombreComercial,
-            RnpValidUntil = request.RnpValidUntil,
+            RnpValidUntil = request.RnpValidUntil.ToDateTime(),
             MainActivity = request.MainActivity,
             DomicilioFiscal = request.DomicilioFiscal,
             ContactPhone = request.ContactPhone,

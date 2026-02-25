@@ -14,7 +14,7 @@ public interface IConsortiumRepository
         Guid consortiumCompanyId);
 
     Task<Result<Unit, ConsortiumError>>
-        InsertConsortiumCompanyAsync(ConsortiumCompany consortiumCompany);
+        InsertConsortiumCompanyAsync(CreateConsortiumCompany consortiumCompany);
 
     Task<Result<Unit, ConsortiumError>>
         UpdateConsortiumCompanyAsync(ConsortiumCompany consortiumCompany);

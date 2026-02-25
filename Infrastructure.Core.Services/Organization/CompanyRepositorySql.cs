@@ -35,37 +35,42 @@ public static class CompanyRepositorySql
                                             """;
 
     public const string GetCompanyDetailsByConsortiumCompanyId = """
-                                                                  SELECT 
-                                                                      c."CompanyId", c."Ruc", c."RazonSocial", c."DomicilioLegal", 
-                                                                      c."Telefono", c."Email", c."FechaConstitucion", c."IsMype", c."CreatedDate", c."UpdatedDate",
-                                                                      lr."LegalRepresentativeId", lr."CompanyId" AS "LRCompanyId", lr."FullName", 
-                                                                      lr."DocumentType", lr."DocumentNumber", lr."PowerRegistrationLocation", 
-                                                                      lr."PowerRegistrationSheet", lr."PowerRegistrationEntry", lr."NationalIdImage", 
-                                                                      lr."IsActive" AS "LRIsActive", lr."CreatedDate" AS "LRCreatedDate", 
-                                                                      lr."UpdatedDate" AS "LRUpdatedDate",
-                                                                      ba."BankAccountId", ba."CompanyId" AS "BACompanyId", ba."BankName", 
-                                                                      ba."AccountNumber", ba."CciCode", ba."IsActive" AS "BAIsActive",
-                                                                      ba."CreatedDate" AS "BACreatedDate", ba."UpdatedDate" AS "BAUpdatedDate"
-                                                                  FROM "Consortium"."ConsortiumCompanies" cc
-                                                                  INNER JOIN "Company"."Companies" c ON c."CompanyId" = cc."CompanyId"
-                                                                  LEFT JOIN LATERAL (
-                                                                      SELECT * 
-                                                                      FROM "Consortium"."ConsortiumCompanyLegalRepresentatives" 
-                                                                      WHERE "ConsortiumCompanyId" = cc."ConsortiumCompanyId" 
-                                                                        AND "IsActive" = TRUE 
-                                                                      ORDER BY "CreatedDate" DESC 
-                                                                      LIMIT 1
-                                                                  ) lr ON TRUE
-                                                                  LEFT JOIN LATERAL (
-                                                                      SELECT * 
-                                                                      FROM "Company"."BankAccounts" 
-                                                                      WHERE "CompanyId" = c."CompanyId" 
-                                                                        AND "IsActive" = TRUE 
-                                                                      ORDER BY "CreatedDate" DESC 
-                                                                      LIMIT 1
-                                                                  ) ba ON TRUE
-                                                                  WHERE cc."ConsortiumCompanyId" = @ConsortiumCompanyId
-                                                                  """;
+                                                                 SELECT 
+                                                                     cc."ConsortiumCompanyId"    AS "CompanyId",
+                                                                     cc."Ruc",
+                                                                     cc."RazonSocial",
+                                                                     cc."DomicilioFiscal"        AS "DomicilioLegal",
+                                                                     cc."ContactPhone"           AS "Telefono",
+                                                                     cc."ContactEmail"           AS "Email",
+                                                                     FALSE                       AS "IsMype",
+                                                                     NULL                        AS "FechaConstitucion",
+                                                                     cc."CreatedDate",
+                                                                     cc."UpdatedDate",
+                                                                     lr."ConsortiumLegalRepresentativeId" AS "LegalRepresentativeId",
+                                                                     lr."ConsortiumCompanyId"    AS "LRCompanyId",
+                                                                     lr."FullName",
+                                                                     'DNI'                       AS "DocumentType",
+                                                                     lr."Dni"                    AS "DocumentNumber",
+                                                                     NULL                        AS "PowerRegistrationLocation",
+                                                                     NULL                        AS "PowerRegistrationSheet",
+                                                                     NULL                        AS "PowerRegistrationEntry",
+                                                                     NULL                        AS "NationalIdImage",
+                                                                     lr."IsActive"               AS "LRIsActive",
+                                                                     lr."CreatedDate"            AS "LRCreatedDate",
+                                                                     lr."UpdatedDate"            AS "LRUpdatedDate",
+                                                                     NULL::UUID                  AS "BankAccountId"
+                                                                 FROM "Company"."ConsortiumCompany" cc
+                                                                 LEFT JOIN LATERAL (
+                                                                     SELECT *
+                                                                     FROM "Company"."ConsortiumLegalRepresentative"
+                                                                     WHERE "ConsortiumCompanyId" = cc."ConsortiumCompanyId"
+                                                                       AND "IsActive" = TRUE
+                                                                     ORDER BY "CreatedDate" DESC
+                                                                     LIMIT 1
+                                                                 ) lr ON TRUE
+                                                                 WHERE cc."ConsortiumCompanyId" = @ConsortiumCompanyId::uuid
+                                                                   AND cc."IsActive" = TRUE
+                                                                 """;
 
     public const string UpdateCompany = """
                                         UPDATE "Company"."Companies"
